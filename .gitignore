@@ -1,0 +1,35 @@
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+*.lock
+
+# Android
+android/.gradle/
+android/captures/
+android/key.properties
+android/local.properties
+*.apk
+*.aab
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+*.ipa
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# macOS
+.DS_Store
+
+# .claude (세션 메모리, 설정 등 로컬 전용)
+# .claude/docs/ 는 제외 → 팀 공유 문서로 푸시
+.claude/*
+!.claude/docs
