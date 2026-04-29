@@ -5,15 +5,10 @@ Android / iOS 멀티플랫폼 기타 튜너 앱.
 
 ## 세부 문서
 
+- [개발 가이드라인](.claude/docs/guidelines.md)
 - [오디오 엔진 스펙](.claude/docs/audio.md)
 - [튜닝 프리셋 목록](.claude/docs/tunings.md)
 - [프로젝트 구조](.claude/docs/structure.md)
-
-## 커밋 규칙
-
-- **언어**: 한글
-- **형식**: `<type>: <설명>`
-- **type**: feat, fix, refactor, docs, test, chore, perf
 
 ## 구현 단계
 
