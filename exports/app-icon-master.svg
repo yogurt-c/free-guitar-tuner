@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  
+  
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1" gradientTransform="rotate(155 0.5 0.5)">
+      <stop offset="0%" stop-color="#1F1F26"></stop>
+      <stop offset="100%" stop-color="#0B0B0E"></stop>
+    </linearGradient>
+    <radialGradient id="halo" cx="50%" cy="55%" r="40%">
+      <stop offset="0%" stop-color="#7DD3A0" stop-opacity="0.22"></stop>
+      <stop offset="100%" stop-color="#7DD3A0" stop-opacity="0"></stop>
+    </radialGradient>
+  </defs>
+
+  
+  <rect width="1024" height="1024" fill="url(#bg)"></rect>
+  <rect width="1024" height="1024" fill="url(#halo)"></rect>
+
+  
+  <g>
+    <rect x="180.00" y="431.60" width="61.33" height="220.80" rx="24.53" ry="24.53" fill="rgba(245,244,240,0.18)"></rect>
+    <rect x="255.33" y="401.70" width="61.33" height="280.60" rx="24.53" ry="24.53" fill="rgba(200,178,115,0.5)"></rect>
+    <rect x="330.67" y="371.80" width="61.33" height="340.40" rx="24.53" ry="24.53" fill="#C8B273"></rect>
+    <rect x="406.00" y="341.90" width="61.33" height="400.20" rx="24.53" ry="24.53" fill="#7DD3A0"></rect>
+    <rect x="481.33" y="312.00" width="61.33" height="460.00" rx="24.53" ry="24.53" fill="#7DD3A0"></rect>
+    <rect x="556.67" y="341.90" width="61.33" height="400.20" rx="24.53" ry="24.53" fill="#7DD3A0"></rect>
+    <rect x="632.00" y="371.80" width="61.33" height="340.40" rx="24.53" ry="24.53" fill="#C8B273"></rect>
+    <rect x="707.33" y="401.70" width="61.33" height="280.60" rx="24.53" ry="24.53" fill="rgba(200,178,115,0.5)"></rect>
+    <rect x="782.67" y="431.60" width="61.33" height="220.80" rx="24.53" ry="24.53" fill="rgba(245,244,240,0.18)"></rect>
+  </g>
+
+  
+  <line x1="512" y1="262.00" x2="512" y2="294.00" stroke="#7DD3A0" stroke-width="6" stroke-linecap="round"></line>
+
+  
+  <circle cx="512" cy="832.00" r="10" fill="#7DD3A0"></circle>
+</svg>
