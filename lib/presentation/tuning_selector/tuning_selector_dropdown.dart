@@ -17,8 +17,25 @@ class TuningSelectorDropdown extends ConsumerStatefulWidget {
 class _TuningSelectorDropdownState
     extends ConsumerState<TuningSelectorDropdown> {
   bool _open = false;
+  final _layerLink = LayerLink();
+  final _overlayController = OverlayPortalController();
+  double _triggerWidth = 0;
 
   AppTheme get _t => widget.theme;
+
+  void _toggle() {
+    if (_open) {
+      _overlayController.hide();
+    } else {
+      _overlayController.show();
+    }
+    setState(() => _open = !_open);
+  }
+
+  void _close() {
+    _overlayController.hide();
+    setState(() => _open = false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,91 +45,112 @@ class _TuningSelectorDropdownState
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 22),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          GestureDetector(
-            onTap: () => setState(() => _open = !_open),
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-              decoration: BoxDecoration(
-                color: _t.surface,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: _t.line),
+      child: CompositedTransformTarget(
+        link: _layerLink,
+        child: OverlayPortal(
+          controller: _overlayController,
+          overlayChildBuilder: (context) => Stack(
+            children: [
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: _close,
+                ),
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'TUNING PRESET',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 1.2,
-                            color: _t.textDim,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Row(
+              CompositedTransformFollower(
+                link: _layerLink,
+                targetAnchor: Alignment.bottomLeft,
+                followerAnchor: Alignment.topLeft,
+                offset: const Offset(0, 6),
+                child: SizedBox(
+                  width: _triggerWidth,
+                  child: _DropdownList(
+                    theme: _t,
+                    selectedKey: selection.presetKey,
+                    onSelect: (key) {
+                      ref
+                          .read(tuningSelectionProvider.notifier)
+                          .selectPreset(key);
+                      _close();
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              _triggerWidth = constraints.maxWidth;
+              return GestureDetector(
+                onTap: _toggle,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _t.surface,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: _t.line),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              preset.name,
+                              'TUNING PRESET',
                               style: TextStyle(
-                                fontSize: 16,
+                                fontSize: 10,
                                 fontWeight: FontWeight.w600,
-                                color: _t.text,
+                                letterSpacing: 1.2,
+                                color: _t.textDim,
                               ),
                             ),
-                            const SizedBox(width: 10),
-                            Text(
-                              noteString,
-                              style: TextStyle(
-                                fontFamily: 'monospace',
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                letterSpacing: 0.5,
-                                color: _t.textMuted,
-                              ),
+                            const SizedBox(height: 3),
+                            Row(
+                              children: [
+                                Text(
+                                  preset.name,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: _t.text,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  noteString,
+                                  style: TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    letterSpacing: 0.5,
+                                    color: _t.textMuted,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                      ],
-                    ),
+                      ),
+                      AnimatedRotation(
+                        turns: _open ? 0.5 : 0.0,
+                        duration: const Duration(milliseconds: 200),
+                        child: Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: _t.textMuted,
+                          size: 20,
+                        ),
+                      ),
+                    ],
                   ),
-                  AnimatedRotation(
-                    turns: _open ? 0.5 : 0.0,
-                    duration: const Duration(milliseconds: 200),
-                    child: Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      color: _t.textMuted,
-                      size: 20,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           ),
-          AnimatedCrossFade(
-            duration: const Duration(milliseconds: 180),
-            firstCurve: Curves.easeIn,
-            secondCurve: Curves.easeOut,
-            crossFadeState:
-                _open ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-            firstChild: const SizedBox.shrink(),
-            secondChild: _DropdownList(
-              theme: _t,
-              selectedKey: selection.presetKey,
-              onSelect: (key) {
-                ref.read(tuningSelectionProvider.notifier).selectPreset(key);
-                setState(() => _open = false);
-              },
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -133,7 +171,6 @@ class _DropdownList extends StatelessWidget {
   Widget build(BuildContext context) {
     final keys = tuningPresets.keys.toList();
     return Container(
-      margin: const EdgeInsets.only(top: 6),
       decoration: BoxDecoration(
         color: theme.surface,
         borderRadius: BorderRadius.circular(14),
@@ -150,17 +187,22 @@ class _DropdownList extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(14),
-        child: Column(
-          children: [
-            for (int i = 0; i < keys.length; i++)
-              _PresetItem(
-                theme: theme,
-                preset: tuningPresets[keys[i]]!,
-                isSelected: keys[i] == selectedKey,
-                showDivider: i > 0,
-                onTap: () => onSelect(keys[i]),
-              ),
-          ],
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.45,
+          ),
+          child: ListView.builder(
+            padding: EdgeInsets.zero,
+            shrinkWrap: true,
+            itemCount: keys.length,
+            itemBuilder: (context, i) => _PresetItem(
+              theme: theme,
+              preset: tuningPresets[keys[i]]!,
+              isSelected: keys[i] == selectedKey,
+              showDivider: i > 0,
+              onTap: () => onSelect(keys[i]),
+            ),
+          ),
         ),
       ),
     );
