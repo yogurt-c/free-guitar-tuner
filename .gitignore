@@ -33,3 +33,4 @@ ios/Flutter/Flutter.podspec
 # .claude/docs/ 는 제외 → 팀 공유 문서로 푸시
 .claude/*
 !.claude/docs
+!.claude/design
