@@ -6,6 +6,12 @@
   - 오디오 관련 작업 → [`audio.md`](audio.md)
   - 튜닝 프리셋 관련 작업 → [`tunings.md`](tunings.md)
   - 구조/아키텍처 관련 작업 → [`structure.md`](structure.md)
+- UI 구현 시 반드시 디자인 파일을 참조한다 (`.claude/design/`)
+  - 메인 디자인 → [`Guitar Tuner.html`](../design/Guitar%20Tuner.html) — 전체 화면 레이아웃, 색상, 타이포그래피
+  - 튜너 UI 컴포넌트 → [`tuner-app.jsx`](../design/tuner-app.jsx) — BarMeter, 음이름 표시, FretboardView 등
+  - iOS 프레임 → [`ios-frame.jsx`](../design/ios-frame.jsx) — 디바이스 프레임 및 전체 구성
+  - 트윅 패널 → [`tweaks-panel.jsx`](../design/tweaks-panel.jsx) — 세부 파라미터 조정 UI
+  - 디자인 채팅 기록 → [`chat1.md`](../design/chat1.md) — 디자인 의도 및 결정 맥락
 - 현재 Phase의 TODO를 `in_progress`로 변경한다
 
 ## 개발 중
