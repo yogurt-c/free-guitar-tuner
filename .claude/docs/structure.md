@@ -16,6 +16,9 @@ lib/
 │   └── pitch_detector.dart
 │
 └── presentation/            # UI, 상태관리
+    ├── shared/
+    │   ├── app_theme.dart             # 색상 토큰 (dark/light 테마)
+    │   └── pulse_dot.dart             # 반복 펄스 애니메이션 도트 위젯
     ├── tuner/
     │   ├── tuner_screen.dart
     │   ├── tuner_notifier.dart
@@ -25,9 +28,9 @@ lib/
     │       ├── fretboard_view.dart    # 6현 다이어그램 (두께 차등, 튜닝 완료 배지)
     │       ├── top_bar.dart           # 햄버거 메뉴 + 모드 레이블 + 다크/라이트 토글
     │       ├── bottom_controls.dart   # Auto-detect 토글 + Mic live 표시
-    │       └── side_menu.dart         # 슬라이드인 메뉴 (Tuner / Metronome)
+    │       └── side_menu.dart         # (Phase 6) 슬라이드인 메뉴 (Tuner / Metronome)
     ├── metronome/
-    │   └── metronome_screen.dart      # BPM, 박자 도트, 박자표 선택, Start/Stop
+    │   └── metronome_screen.dart      # (Phase 6) BPM, 박자 도트, 박자표 선택, Start/Stop
     └── tuning_selector/
         ├── tuning_selector_dropdown.dart
         └── tuning_selection_notifier.dart
