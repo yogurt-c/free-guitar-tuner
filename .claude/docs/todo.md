@@ -63,18 +63,18 @@
   - 상단: TopBar → BarMeter → PresetDropdown → FretboardView → BottomControls
 
 ## Phase 6 — 튜닝 선택 UI
-- [ ] `feat: 튜닝 프리셋 드롭다운 구현`
+- [x] `feat: 튜닝 프리셋 드롭다운 구현`
   - 선택된 프리셋 이름 + 음열(E A D G B E) 한 줄 표시
   - 펼치면 전체 프리셋 목록, 활성 항목 우측에 accent 도트
-- [ ] `feat: 사이드 메뉴 구현`
+- [x] `feat: 사이드 메뉴 구현`
   - 좌측에서 슬라이드인, 배경 딤 처리
   - 메뉴 항목: Tuner(마이크 아이콘) / Metronome(메트로놈 아이콘)
   - 활성 항목 좌측 accent 세로선 + 아이콘 배경 accent 틴트
-- [ ] `feat: 메트로놈 화면 구현`
-  - BPM 숫자(124px), 템포 이름(Largo~Presto), BPM 슬라이더(40~220)
+- [x] `feat: 메트로놈 화면 구현`
+  - BPM 숫자(96px), 템포 이름(Largo~Presto), BPM 슬라이더(40~220)
   - 박자 도트 (downbeat 크게, 나머지 작게), 현재 박자 accent 컬러 + 글로우
   - 박자표 선택: 3/4 · 4/4 · 6/4 · 8/4, Start/Stop 버튼
-- [ ] `feat: BottomControls 구현`
+- [x] `feat: BottomControls 구현`
   - Auto-detect 토글 스위치 + 레이블
   - 우측: 펄스 도트 + "Mic live · A = 440 Hz"
 

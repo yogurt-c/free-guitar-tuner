@@ -13,7 +13,9 @@ import 'widgets/note_display.dart';
 import 'widgets/top_bar.dart';
 
 class TunerScreen extends ConsumerWidget {
-  const TunerScreen({super.key});
+  const TunerScreen({super.key, required this.onMenuTap});
+
+  final VoidCallback onMenuTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -42,7 +44,7 @@ class TunerScreen extends ConsumerWidget {
               theme: theme,
               isDark: selection.isDark,
               modeLabel: 'Tuner',
-              onMenuTap: () {}, // Phase 6: SideMenu
+              onMenuTap: onMenuTap,
               onThemeToggle: notifier.toggleDark,
             ),
             const SizedBox(height: 18),
