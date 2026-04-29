@@ -1,4 +1,4 @@
-package com.tardistechnology.guitar_tuner
+package com.yogurtc.guitar_tuner
 
 import io.flutter.embedding.android.FlutterActivity
 
