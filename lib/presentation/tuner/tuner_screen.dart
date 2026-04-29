@@ -34,6 +34,10 @@ class TunerScreen extends ConsumerWidget {
     final int octave = tuneResult?.octave ?? targetNote.octave;
     final double currentFreq = tuner.detectedFreq ?? targetNote.freq;
 
+    if (tuner.permissionDenied) {
+      return _PermissionDeniedScreen(theme: theme);
+    }
+
     return Scaffold(
       backgroundColor: theme.bg,
       body: SafeArea(
@@ -81,6 +85,47 @@ class TunerScreen extends ConsumerWidget {
               onToggle: notifier.toggleAutoDetect,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PermissionDeniedScreen extends StatelessWidget {
+  const _PermissionDeniedScreen({required this.theme});
+
+  final AppTheme theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: theme.bg,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 40),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.mic_off_rounded, size: 64, color: theme.textDim),
+              const SizedBox(height: 24),
+              Text(
+                'Microphone Access Required',
+                style: TextStyle(
+                  color: theme.text,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Guitar Tuner needs microphone access to detect pitch.\n'
+                'Please enable it in your device Settings.',
+                style: TextStyle(color: theme.textMuted, fontSize: 14, height: 1.6),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );
