@@ -1,9 +1,9 @@
 # TODO LIST
 
 ## Phase 1 — 프로젝트 셋업
-- [ ] `chore: 클린 아키텍처 구조로 플러터 프로젝트 초기화`
-- [ ] `chore: 핵심 의존성 추가 (riverpod, record, audio_session, fftea)`
-- [ ] `chore: Android/iOS 마이크 권한 설정`
+- [x] `chore: 클린 아키텍처 구조로 플러터 프로젝트 초기화`
+- [x] `chore: 핵심 의존성 추가 (riverpod, record, audio_session, fftea)`
+- [x] `chore: Android/iOS 마이크 권한 설정`
 
 ## Phase 2 — 도메인 레이어
 - [ ] `feat: Note, Tuning 도메인 모델 정의`
