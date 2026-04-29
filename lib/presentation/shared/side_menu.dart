@@ -18,22 +18,22 @@ class SideMenuPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 260,
+      width: 280,
       height: double.infinity,
-      color: theme.surface,
+      color: theme.bg,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 52),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
               child: Text(
-                'NAVIGATION',
+                'TOOLS',
                 style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.4,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.6,
                   color: theme.textDim,
                 ),
               ),
@@ -41,6 +41,7 @@ class SideMenuPanel extends StatelessWidget {
             _MenuItem(
               theme: theme,
               label: 'Tuner',
+              sub: 'Pitch detection',
               icon: Icons.mic_none_rounded,
               isActive: activeMode == AppMode.tuner,
               onTap: () => onSelect(AppMode.tuner),
@@ -48,6 +49,7 @@ class SideMenuPanel extends StatelessWidget {
             _MenuItem(
               theme: theme,
               label: 'Metronome',
+              sub: 'Tempo & beats',
               icon: Icons.timer_outlined,
               isActive: activeMode == AppMode.metronome,
               onTap: () => onSelect(AppMode.metronome),
@@ -63,6 +65,7 @@ class _MenuItem extends StatelessWidget {
   const _MenuItem({
     required this.theme,
     required this.label,
+    required this.sub,
     required this.icon,
     required this.isActive,
     required this.onTap,
@@ -70,6 +73,7 @@ class _MenuItem extends StatelessWidget {
 
   final AppTheme theme;
   final String label;
+  final String sub;
   final IconData icon;
   final bool isActive;
   final VoidCallback onTap;
@@ -96,7 +100,7 @@ class _MenuItem extends StatelessWidget {
                 height: 36,
                 decoration: BoxDecoration(
                   color: isActive
-                      ? theme.accent.withAlpha(38)
+                      ? theme.accent.withAlpha(34)
                       : theme.surface2,
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -107,12 +111,27 @@ class _MenuItem extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 14),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                  color: isActive ? theme.text : theme.textMuted,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: theme.text,
+                      ),
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      sub,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: theme.textMuted,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
