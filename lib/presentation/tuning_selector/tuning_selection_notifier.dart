@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/analyzer/note_analyzer.dart';
 import '../../domain/model/tuning_preset.dart';
+import '../metronome/metronome_notifier.dart';
 import '../tuner/tuner_notifier.dart';
 
 enum AppMode { tuner, metronome }
@@ -118,6 +119,9 @@ class TuningSelectionNotifier extends Notifier<TuningSelectionState> {
   }
 
   void switchMode(AppMode mode) {
+    if (mode == AppMode.tuner) {
+      ref.read(metronomeProvider.notifier).stop();
+    }
     state = state.copyWith(mode: mode);
   }
 
