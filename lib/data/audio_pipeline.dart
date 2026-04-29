@@ -12,8 +12,11 @@ class PitchResult {
 
 /// AudioCapture 스트림을 PitchDetector에 연결해 pitch + signalLevel을 스트리밍한다.
 class AudioPipeline {
+  static const _smoothingFrames = 5;
+
   final _capture = AudioCapture();
   final _detector = PitchDetector();
+  final _freqBuffer = <double>[];
 
   StreamSubscription<PitchResult>? _subscription;
   final _controller = StreamController<PitchResult>.broadcast();
@@ -26,14 +29,30 @@ class AudioPipeline {
         .asyncMap((samples) async {
           final signalLevel = _rms(samples);
           final freq = await _detector.detect(samples);
-          return PitchResult(freq: freq, signalLevel: signalLevel);
+          return PitchResult(
+            freq: freq != null ? _smooth(freq) : null,
+            signalLevel: signalLevel,
+          );
         })
         .listen(_controller.add, onError: _controller.addError);
+  }
+
+  double _smooth(double freq) {
+    _freqBuffer.add(freq);
+    if (_freqBuffer.length > _smoothingFrames) {
+      _freqBuffer.removeAt(0);
+    }
+    final sorted = [..._freqBuffer]..sort();
+    final mid = sorted.length ~/ 2;
+    return sorted.length.isOdd
+        ? sorted[mid]
+        : (sorted[mid - 1] + sorted[mid]) / 2.0;
   }
 
   Future<void> stop() async {
     await _subscription?.cancel();
     _subscription = null;
+    _freqBuffer.clear();
     await _capture.stop();
   }
 
