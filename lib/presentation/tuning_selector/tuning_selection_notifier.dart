@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/analyzer/note_analyzer.dart';
@@ -75,9 +76,11 @@ class TuningSelectionNotifier extends Notifier<TuningSelectionState> {
 
       if (tuneResult.state == TuneState.inTune) {
         inTuneTimer ??= Timer(const Duration(milliseconds: 500), () {
+          final alreadyTuned = state.tunedStrings.contains(state.selectedString);
           state = state.copyWith(
             tunedStrings: {...state.tunedStrings, state.selectedString},
           );
+          if (!alreadyTuned) HapticFeedback.mediumImpact();
           inTuneTimer = null;
         });
       } else {
