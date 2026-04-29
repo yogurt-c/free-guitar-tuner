@@ -17,13 +17,13 @@
   - |cents| < 3 → inTune, cents < -3 → flat, cents > 3 → sharp
 
 ## Phase 3 — 오디오 엔진
-- [ ] `feat: 마이크 오디오 캡처 스트림 구현`
+- [x] `feat: 마이크 오디오 캡처 스트림 구현`
   - PCM16 모노, 44100Hz, 버퍼 2048샘플
   - `record` 패키지 사용, `audio_session` 세션 설정
-- [ ] `feat: YIN 피치 감지 알고리즘 구현`
+- [x] `feat: YIN 피치 감지 알고리즘 구현`
   - Difference function → CMNDF → 절대 임계값(0.1) → 포물선 보간
   - `compute()`로 별도 isolate 실행 (UI 스레드 블로킹 금지)
-- [ ] `feat: 오디오 스트림과 피치 감지 연결`
+- [x] `feat: 오디오 스트림과 피치 감지 연결`
   - PCM16 bytes → double samples 변환 후 YIN 입력
 
 ## Phase 4 — 상태관리
