@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Dark gradient: #1F1F26 → #0B0B0E at 155° -->
+    <path android:pathData="M0,0 H108 V108 H0 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="103"
+                android:startY="22"
+                android:endX="-15"
+                android:endY="86"
+                android:startColor="#FF1F1F26"
+                android:endColor="#FF0B0B0E"/>
+        </aapt:attr>
+    </path>
+
+    <!-- Green radial halo (cx=50%, cy=55%, r=40%, opacity 0→0.22) -->
+    <path android:pathData="M0,0 H108 V108 H0 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="54"
+                android:centerY="59.4"
+                android:gradientRadius="43.2"
+                android:startColor="#387DD3A0"
+                android:endColor="#007DD3A0"/>
+        </aapt:attr>
+    </path>
+</vector>
