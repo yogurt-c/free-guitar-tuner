@@ -12,6 +12,7 @@ class NoteDisplay extends StatelessWidget {
     required this.inTune,
     required this.currentFreq,
     required this.targetFreq,
+    this.isActive = true,
   });
 
   final AppTheme theme;
@@ -21,6 +22,7 @@ class NoteDisplay extends StatelessWidget {
   final bool inTune;
   final double currentFreq;
   final double targetFreq;
+  final bool isActive;
 
   String get _statusText {
     if (inTune) return 'IN TUNE';
@@ -31,16 +33,22 @@ class NoteDisplay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final noteColor = theme.noteColor(cents, inTune);
+    final noteColor = isActive
+        ? theme.noteColor(cents, inTune)
+        : theme.textDim;
     final statusColor = theme.statusColor(cents, inTune);
 
     return Column(
       children: [
-        _StatusPill(
-          text: _statusText,
-          statusColor: statusColor,
-          inTune: inTune,
-          theme: theme,
+        AnimatedOpacity(
+          duration: const Duration(milliseconds: 200),
+          opacity: isActive ? 1.0 : 0.0,
+          child: _StatusPill(
+            text: _statusText,
+            statusColor: statusColor,
+            inTune: inTune,
+            theme: theme,
+          ),
         ),
         const SizedBox(height: 12),
         Text.rich(
@@ -65,7 +73,7 @@ class NoteDisplay extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.w400,
-                      color: theme.textMuted,
+                      color: isActive ? theme.textMuted : theme.textDim,
                     ),
                   ),
                 ),
@@ -75,30 +83,34 @@ class NoteDisplay extends StatelessWidget {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 6),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              '${currentFreq.toStringAsFixed(2)} Hz',
-              style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 12,
-                color: theme.textMuted,
+        AnimatedOpacity(
+          duration: const Duration(milliseconds: 200),
+          opacity: isActive ? 1.0 : 0.3,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                '${currentFreq.toStringAsFixed(2)} Hz',
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                  color: theme.textMuted,
+                ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text('→', style: TextStyle(color: theme.textDim)),
-            ),
-            Text(
-              '${targetFreq.toStringAsFixed(2)} Hz',
-              style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 12,
-                color: theme.textDim,
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text('→', style: TextStyle(color: theme.textDim)),
               ),
-            ),
-          ],
+              Text(
+                '${targetFreq.toStringAsFixed(2)} Hz',
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                  color: theme.textDim,
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );

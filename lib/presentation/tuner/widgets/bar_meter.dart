@@ -7,11 +7,13 @@ class BarMeter extends StatelessWidget {
     required this.theme,
     required this.cents,
     required this.inTune,
+    this.isActive = true,
   });
 
   final AppTheme theme;
   final double cents;
   final bool inTune;
+  final bool isActive;
 
   static const _numBars = 21;
   static const _center = 10;
@@ -23,6 +25,15 @@ class BarMeter extends StatelessWidget {
     final activePos = _center + (clamped / 50.0) * 10.0;
 
     final bars = List.generate(_numBars, (i) {
+      if (!isActive) {
+        return _BarData(
+          height: 0.28 * _barAreaHeight,
+          color: theme.line,
+          opacity: 0.55,
+          isActive: false,
+        );
+      }
+
       final distFromActive = (i - activePos).abs();
       final distFromCenter = (i - _center).abs().toDouble();
       final inActiveRegion = distFromActive < 3.0;
@@ -60,7 +71,7 @@ class BarMeter extends StatelessWidget {
       );
     });
 
-    final hairlineColor = inTune
+    final hairlineColor = isActive && inTune
         ? theme.inTune.withValues(alpha: 0.4)
         : theme.line;
 
@@ -82,7 +93,7 @@ class BarMeter extends StatelessWidget {
                   ),
                   child: FadeTransition(opacity: animation, child: child),
                 ),
-                child: inTune
+                child: isActive && inTune
                     ? _LockedBadge(
                         key: const ValueKey('locked'),
                         theme: theme,
@@ -101,7 +112,7 @@ class BarMeter extends StatelessWidget {
                 Positioned(
                   top: -12, bottom: -12, left: -8, right: -8,
                   child: AnimatedOpacity(
-                    opacity: inTune ? 1.0 : 0.0,
+                    opacity: isActive && inTune ? 1.0 : 0.0,
                     duration: const Duration(milliseconds: 250),
                     child: DecoratedBox(
                       decoration: BoxDecoration(
@@ -140,7 +151,10 @@ class BarMeter extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          _CentsLabels(theme: theme, cents: cents, inTune: inTune),
+          if (isActive)
+            _CentsLabels(theme: theme, cents: cents, inTune: inTune)
+          else
+            const SizedBox(height: 23),
         ],
       ),
     );

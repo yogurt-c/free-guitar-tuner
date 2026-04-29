@@ -28,6 +28,7 @@ class TunerScreen extends ConsumerWidget {
     final targetNote = preset.strings[selection.selectedString];
 
     final tuneResult = tuner.tuneResult;
+    final bool isActive = tuneResult != null;
     final double cents = tuneResult?.cents ?? 0.0;
     final bool inTune = tuneResult?.state == TuneState.inTune;
     final String noteName = tuneResult?.noteName ?? targetNote.name;
@@ -60,12 +61,14 @@ class TunerScreen extends ConsumerWidget {
               inTune: inTune,
               currentFreq: currentFreq,
               targetFreq: targetNote.freq,
+              isActive: isActive,
             ),
             const SizedBox(height: 8),
             BarMeter(
               theme: theme,
               cents: cents,
               inTune: inTune,
+              isActive: isActive,
             ),
             const SizedBox(height: 28),
             TuningSelectorDropdown(theme: theme),
