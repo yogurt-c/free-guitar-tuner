@@ -9,6 +9,7 @@ Android / iOS 멀티플랫폼 기타 튜너 앱.
 - [오디오 엔진 스펙](.claude/docs/audio.md)
 - [튜닝 프리셋 목록](.claude/docs/tunings.md)
 - [프로젝트 구조](.claude/docs/structure.md)
+- [TODO LIST](.claude/docs/todo.md)
 
 ## 구현 단계
 
