@@ -63,6 +63,12 @@ class TuningSelectionNotifier extends Notifier<TuningSelectionState> {
     Timer? inTuneTimer;
 
     ref.listen<TunerState>(tunerProvider, (_, next) {
+      if (state.mode != AppMode.tuner) {
+        inTuneTimer?.cancel();
+        inTuneTimer = null;
+        return;
+      }
+
       final tuneResult = next.tuneResult;
 
       if (tuneResult == null) {
@@ -77,6 +83,10 @@ class TuningSelectionNotifier extends Notifier<TuningSelectionState> {
 
       if (tuneResult.state == TuneState.inTune) {
         inTuneTimer ??= Timer(const Duration(milliseconds: 500), () {
+          if (state.mode != AppMode.tuner) {
+            inTuneTimer = null;
+            return;
+          }
           final alreadyTuned = state.tunedStrings.contains(state.selectedString);
           state = state.copyWith(
             tunedStrings: {...state.tunedStrings, state.selectedString},
@@ -119,7 +129,7 @@ class TuningSelectionNotifier extends Notifier<TuningSelectionState> {
   }
 
   void switchMode(AppMode mode) {
-    if (mode == AppMode.tuner) {
+    if (state.mode == AppMode.metronome) {
       ref.read(metronomeProvider.notifier).stop();
     }
     state = state.copyWith(mode: mode);
