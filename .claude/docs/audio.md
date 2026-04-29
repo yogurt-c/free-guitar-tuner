@@ -16,9 +16,9 @@ Autocorrelation 기반으로 연산 비용 낮음.
 ## Cents 표시 기준
 
 - 범위: -50 ~ +50 cents
-- ±5 이내 → 초록 (합격)
-- ±5~15 → 노랑
-- ±15 초과 → 빨강
+- |cents| < 3 → 초록 inTune (#7DD3A0)
+- cents < -3 → 오렌지 flat (#E0824A) — 음정 낮음
+- cents > 3 → 파랑 sharp (#5BA3E0) — 음정 높음
 
 ## 안정화 처리
 

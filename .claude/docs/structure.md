@@ -20,11 +20,16 @@ lib/
     │   ├── tuner_screen.dart
     │   ├── tuner_notifier.dart
     │   └── widgets/
-    │       ├── tuner_meter.dart       # CustomPainter 아날로그 미터
-    │       ├── note_display.dart
-    │       └── string_tab_bar.dart
+    │       ├── bar_meter.dart         # 21바 스펙트럼 바 미터 (±50¢)
+    │       ├── note_display.dart      # 음이름 + cents + 상태 필
+    │       ├── fretboard_view.dart    # 6현 다이어그램 (두께 차등, 튜닝 완료 배지)
+    │       ├── top_bar.dart           # 햄버거 메뉴 + 모드 레이블 + 다크/라이트 토글
+    │       ├── bottom_controls.dart   # Auto-detect 토글 + Mic live 표시
+    │       └── side_menu.dart         # 슬라이드인 메뉴 (Tuner / Metronome)
+    ├── metronome/
+    │   └── metronome_screen.dart      # BPM, 박자 도트, 박자표 선택, Start/Stop
     └── tuning_selector/
-        ├── tuning_selector_sheet.dart
+        ├── tuning_selector_dropdown.dart
         └── tuning_selection_notifier.dart
 ```
 
