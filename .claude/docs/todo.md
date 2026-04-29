@@ -6,13 +6,13 @@
 - [x] `chore: Android/iOS 마이크 권한 설정`
 
 ## Phase 2 — 도메인 레이어
-- [ ] `feat: Note, Tuning 도메인 모델 정의`
+- [x] `feat: Note, Tuning 도메인 모델 정의`
   - `Note` — note(String), octave(int), freq(double) 불변 모델
   - `TuningPreset` — name, strings(List<Note>) 불변 모델
-- [ ] `feat: 튜닝 프리셋 추가`
+- [x] `feat: 튜닝 프리셋 추가`
   - Standard / Drop D / Drop C / Half Step Down / Open G / Open D / DADGAD
   - 각 프리셋: 6번현(낮음) → 1번현(높음) 순서로 정의
-- [ ] `feat: 주파수 → 음이름 + cents 변환 로직 구현`
+- [x] `feat: 주파수 → 음이름 + cents 변환 로직 구현`
   - cents = 1200 × log₂(detectedFreq / targetFreq)
   - |cents| < 3 → inTune, cents < -3 → flat, cents > 3 → sharp
 
