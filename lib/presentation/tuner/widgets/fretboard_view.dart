@@ -24,7 +24,7 @@ class FretboardView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 22),
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.only(top: 14, bottom: 10),
       decoration: BoxDecoration(
         color: theme.surface,
         borderRadius: BorderRadius.circular(16),
@@ -45,6 +45,16 @@ class FretboardView extends StatelessWidget {
                     : const Color.fromRGBO(20, 19, 26, 0.18),
                 borderRadius: BorderRadius.circular(1),
               ),
+            ),
+          ),
+          // Right fret line
+          Positioned(
+            right: 14,
+            top: 0,
+            bottom: 0,
+            width: 1,
+            child: DecoratedBox(
+              decoration: BoxDecoration(color: theme.line),
             ),
           ),
           Column(
