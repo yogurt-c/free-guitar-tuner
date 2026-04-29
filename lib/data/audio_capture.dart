@@ -17,6 +17,11 @@ class AudioCapture {
   Stream<List<double>> get stream => _controller.stream;
 
   Future<void> start() async {
+    final hasPermission = await _recorder.hasPermission();
+    if (!hasPermission) {
+      throw const MicrophonePermissionException();
+    }
+
     final session = await AudioSession.instance;
     await session.configure(const AudioSessionConfiguration(
       avAudioSessionCategory: AVAudioSessionCategory.record,
@@ -74,3 +79,8 @@ class AudioCapture {
     );
   }
 }
+
+class MicrophonePermissionException implements Exception {
+  const MicrophonePermissionException();
+}
+

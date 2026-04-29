@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/audio_capture.dart';
 import '../../data/audio_pipeline.dart';
 import '../../domain/analyzer/note_analyzer.dart';
 import '../../domain/model/tuning_preset.dart';
@@ -11,11 +12,13 @@ class TunerState {
   final double? detectedFreq;
   final TuneResult? tuneResult;
   final double signalLevel;
+  final bool permissionDenied;
 
   const TunerState({
     this.detectedFreq,
     this.tuneResult,
     this.signalLevel = 0.0,
+    this.permissionDenied = false,
   });
 }
 
@@ -30,8 +33,12 @@ class TunerNotifier extends Notifier<TunerState> {
     _pipeline = AudioPipeline();
 
     Future.microtask(() async {
-      await _pipeline.start();
-      _subscription = _pipeline.pitchStream.listen(_onPitchResult);
+      try {
+        await _pipeline.start();
+        _subscription = _pipeline.pitchStream.listen(_onPitchResult);
+      } on MicrophonePermissionException {
+        state = const TunerState(permissionDenied: true);
+      }
     });
 
     ref.onDispose(() async {
