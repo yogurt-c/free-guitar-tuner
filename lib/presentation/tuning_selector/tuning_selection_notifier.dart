@@ -7,12 +7,15 @@ import '../../domain/analyzer/note_analyzer.dart';
 import '../../domain/model/tuning_preset.dart';
 import '../tuner/tuner_notifier.dart';
 
+enum AppMode { tuner, metronome }
+
 class TuningSelectionState {
   final String presetKey;
   final int selectedString;
   final bool autoDetect;
   final Set<int> tunedStrings;
   final bool isDark;
+  final AppMode mode;
 
   const TuningSelectionState({
     required this.presetKey,
@@ -20,6 +23,7 @@ class TuningSelectionState {
     required this.autoDetect,
     required this.tunedStrings,
     required this.isDark,
+    required this.mode,
   });
 
   factory TuningSelectionState.initial() => const TuningSelectionState(
@@ -28,6 +32,7 @@ class TuningSelectionState {
         autoDetect: false,
         tunedStrings: {},
         isDark: true,
+        mode: AppMode.tuner,
       );
 
   TuningSelectionState copyWith({
@@ -36,6 +41,7 @@ class TuningSelectionState {
     bool? autoDetect,
     Set<int>? tunedStrings,
     bool? isDark,
+    AppMode? mode,
   }) =>
       TuningSelectionState(
         presetKey: presetKey ?? this.presetKey,
@@ -43,6 +49,7 @@ class TuningSelectionState {
         autoDetect: autoDetect ?? this.autoDetect,
         tunedStrings: tunedStrings ?? this.tunedStrings,
         isDark: isDark ?? this.isDark,
+        mode: mode ?? this.mode,
       );
 }
 
@@ -91,6 +98,7 @@ class TuningSelectionNotifier extends Notifier<TuningSelectionState> {
       autoDetect: state.autoDetect,
       tunedStrings: const {},
       isDark: state.isDark,
+      mode: state.mode,
     );
   }
 
@@ -104,6 +112,10 @@ class TuningSelectionNotifier extends Notifier<TuningSelectionState> {
 
   void toggleDark() {
     state = state.copyWith(isDark: !state.isDark);
+  }
+
+  void switchMode(AppMode mode) {
+    state = state.copyWith(mode: mode);
   }
 
   void _autoDetectString(double detectedFreq) {

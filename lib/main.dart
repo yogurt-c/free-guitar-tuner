@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'presentation/tuner/tuner_screen.dart';
+import 'presentation/home_shell.dart';
 
 void main() {
   runApp(const ProviderScope(child: GuitarTunerApp()));
@@ -14,7 +14,7 @@ class GuitarTunerApp extends StatelessWidget {
     return const MaterialApp(
       title: 'Guitar Tuner',
       debugShowCheckedModeBanner: false,
-      home: TunerScreen(),
+      home: HomeShell(),
     );
   }
 }
