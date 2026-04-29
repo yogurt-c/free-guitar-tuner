@@ -27,39 +27,39 @@
   - PCM16 bytes → double samples 변환 후 YIN 입력
 
 ## Phase 4 — 상태관리
-- [ ] `feat: Riverpod으로 TunerNotifier 구현 (감지 음, cents, 주파수)`
+- [x] `feat: Riverpod으로 TunerNotifier 구현 (감지 음, cents, 주파수)`
   - state: detectedFreq, cents, inTune, signalLevel
   - 노이즈 게이트: 신호 강도 임계값 이하 무시
-- [ ] `feat: TuningSelectionNotifier 구현 (프리셋 선택, 현 선택)`
+- [x] `feat: TuningSelectionNotifier 구현 (프리셋 선택, 현 선택)`
   - state: presetKey, selectedString(0~5), autoDetect, tunedStrings(Set<int>), isDark
   - 프리셋 변경 시 tunedStrings, selectedString 초기화
   - inTune 500ms 유지 시 tunedStrings에 해당 현 추가
-- [ ] `feat: 현 자동 감지 로직 구현`
+- [x] `feat: 현 자동 감지 로직 구현`
   - autoDetect ON 시 detectedFreq와 가장 가까운 현(cents 거리 최소)으로 자동 전환
   - 거리 200¢ 이내일 때만 전환
 
 ## Phase 5 — 핵심 UI
-- [ ] `feat: 바 미터 위젯 구현 (21바, ±50¢ 스펙트럼)`
+- [x] `feat: 바 미터 위젯 구현 (21바, ±50¢ 스펙트럼)`
   - 21개 바, 중앙(0¢) 기준 좌우로 ±50¢ 매핑
   - 활성 바에서 멀어질수록 높이·불투명도 감소 (peakHeight = 1 - dist/3.5)
   - flat → orange(#E0824A), sharp → blue(#5BA3E0), inTune → 전체 green(#7DD3A0) + 글로우
   - inTune 시 상단 "Locked" 알약 뱃지, 방사형 halo 배경 표시
   - 중앙 세로 기준선(hairline), 하단 −50¢ / cents값 / +50¢ 레이블
-- [ ] `feat: 음이름 표시 및 cents 인디케이터 구현`
+- [x] `feat: 음이름 표시 및 cents 인디케이터 구현`
   - 96px 폰트 음이름 + 상단 octave 숫자
   - 상태 필 (IN TUNE / TOO LOW · ♭ / TOO HIGH · ♯ / NEAR) + 펄스 도트
   - currentFreq Hz → targetFreq Hz 표시
-- [ ] `feat: 프레트보드 현 다이어그램 위젯 구현`
+- [x] `feat: 프레트보드 현 다이어그램 위젯 구현`
   - 6현을 세로로 나열, 6번현(두꺼움) → 1번현(얇음) 순서
   - 왼쪽 너트 세로선 + 현 번호·음이름 pill (선택 시 accent 색)
   - 현 선: thickness = 1.2 + (5 - idx) × 0.45, 선택 현 accent 컬러 + 글로우
   - 튜닝 완료된 현 오른쪽 끝에 초록 체크 원형 배지
   - autoDetect ON 시 비선택 현 비활성(opacity 0.55), 탭 불가
-- [ ] `feat: TopBar 구현`
+- [x] `feat: TopBar 구현`
   - 좌측: 햄버거 메뉴 버튼 (SideMenu 열기)
   - 중앙: 현재 모드 레이블 (Tuner / Metronome)
   - 우측: 다크/라이트 토글 버튼
-- [ ] `feat: 메인 튜너 화면 조합 (TunerScreen)`
+- [x] `feat: 메인 튜너 화면 조합 (TunerScreen)`
   - 상단: TopBar → BarMeter → PresetDropdown → FretboardView → BottomControls
 
 ## Phase 6 — 튜닝 선택 UI
