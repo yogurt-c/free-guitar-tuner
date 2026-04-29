@@ -33,7 +33,7 @@ dependencies:
 
   cupertino_icons: ^1.0.8
   flutter_riverpod: ^2.6.1
-  record: ^5.2.0
+  record: ^6.2.0
   audio_session: ^0.1.21
   fftea: ^1.2.2
 
