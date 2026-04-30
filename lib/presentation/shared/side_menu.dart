@@ -17,44 +17,46 @@ class SideMenuPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 280,
-      height: double.infinity,
+    return Material(
       color: theme.bg,
-      child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 52),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
-              child: Text(
-                'TOOLS',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.6,
-                  color: theme.textDim,
+      child: SizedBox(
+        width: 280,
+        height: double.infinity,
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 52),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
+                child: Text(
+                  'TOOLS',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.6,
+                    color: theme.textDim,
+                  ),
                 ),
               ),
-            ),
-            _MenuItem(
-              theme: theme,
-              label: 'Tuner',
-              sub: 'Pitch detection',
-              icon: Icons.mic_none_rounded,
-              isActive: activeMode == AppMode.tuner,
-              onTap: () => onSelect(AppMode.tuner),
-            ),
-            _MenuItem(
-              theme: theme,
-              label: 'Metronome',
-              sub: 'Tempo & beats',
-              icon: Icons.timer_outlined,
-              isActive: activeMode == AppMode.metronome,
-              onTap: () => onSelect(AppMode.metronome),
-            ),
-          ],
+              _MenuItem(
+                theme: theme,
+                label: 'Tuner',
+                sub: 'Pitch detection',
+                icon: Icons.mic_none_rounded,
+                isActive: activeMode == AppMode.tuner,
+                onTap: () => onSelect(AppMode.tuner),
+              ),
+              _MenuItem(
+                theme: theme,
+                label: 'Metronome',
+                sub: 'Tempo & beats',
+                icon: Icons.timer_outlined,
+                isActive: activeMode == AppMode.metronome,
+                onTap: () => onSelect(AppMode.metronome),
+              ),
+            ],
+          ),
         ),
       ),
     );

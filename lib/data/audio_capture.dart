@@ -29,9 +29,9 @@ class AudioCapture {
           AVAudioSessionCategoryOptions.defaultToSpeaker,
       avAudioSessionMode: AVAudioSessionMode.measurement,
       androidAudioAttributes: AndroidAudioAttributes(
-        contentType: AndroidAudioContentType.speech,
+        contentType: AndroidAudioContentType.music,
         flags: AndroidAudioFlags.none,
-        usage: AndroidAudioUsage.voiceCommunication,
+        usage: AndroidAudioUsage.media,
       ),
       androidWillPauseWhenDucked: true,
     ));
