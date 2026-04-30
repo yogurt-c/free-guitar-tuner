@@ -128,6 +128,94 @@ String _audioPath(String note) {
   return 'test/audio/$note.wav';
 }
 
+// ── 실제 환경 시뮬레이션 헬퍼 ─────────────────────────────────────────────
+
+/// Box-Muller 변환으로 표준 정규분포 난수 생성.
+double _gaussian(Random rng) {
+  final u1 = rng.nextDouble();
+  final u2 = rng.nextDouble();
+  return sqrt(-2 * log(u1 + 1e-10)) * cos(2 * pi * u2);
+}
+
+/// 지정한 SNR(dB)로 가우시안 노이즈를 청크에 추가.
+List<double> _addNoise(List<double> samples, double snrDb, Random rng) {
+  final signalRms = _rmsCalc(samples);
+  if (signalRms < 1e-6) return samples;
+  final noiseAmp = signalRms / pow(10, snrDb / 20.0);
+  return [for (final s in samples) (s + _gaussian(rng) * noiseAmp).clamp(-1.0, 1.0)];
+}
+
+/// 청크 단위 RMS 정규화 (Android AGC 시뮬레이션).
+/// AGC는 파형 형태를 보존하지만 신호 크기를 평탄화한다.
+List<double> _applyAgcChunk(List<double> chunk, {double targetRms = 0.1}) {
+  final rms = _rmsCalc(chunk);
+  if (rms < 1e-6) return chunk;
+  final gain = (targetRms / rms).clamp(0.0, 10.0);
+  return [for (final s in chunk) (s * gain).clamp(-1.0, 1.0)];
+}
+
+/// 실제 파이프라인 재현 – 전처리 함수와 sampleRate를 주입 가능.
+/// 노이즈 게이트는 전처리 후 신호 레벨 기준으로 동작한다
+/// (실제 디바이스에서 AGC/노이즈 처리가 앱 이전에 적용되기 때문).
+Future<List<double>> _detectAllPipelineExt(
+  PitchDetector detector,
+  List<List<double>> chunks, {
+  List<double> Function(List<double>)? preProcess,
+  int sampleRate = _sampleRate,
+}) async {
+  final freqBuffer = <double>[];
+  final results = <double>[];
+  for (final raw in chunks) {
+    final chunk = preProcess != null ? preProcess(raw) : raw;
+    final signalLevel = _rmsCalc(chunk);
+    final rawFreq = await detector.detect(chunk, sampleRate: sampleRate);
+    double? smoothed;
+    if (rawFreq != null) {
+      freqBuffer.add(rawFreq);
+      if (freqBuffer.length > _smoothingFrames) freqBuffer.removeAt(0);
+      final sorted = [...freqBuffer]..sort();
+      final mid = sorted.length ~/ 2;
+      smoothed = sorted.length.isOdd
+          ? sorted[mid]
+          : (sorted[mid - 1] + sorted[mid]) / 2.0;
+    }
+    if (signalLevel < _noiseGateThreshold || smoothed == null) continue;
+    results.add(smoothed);
+  }
+  return results;
+}
+
+/// 기타 현의 물리적 특성을 반영한 합성 신호.
+///
+/// - 비조화성: f_h = f0 × h × √(1 + B×h²)
+///   B = 0 이면 순수 조화음, 실제 기타 저음 현은 B ≈ 0.0005~0.001
+/// - 진폭 포락선: 어택(5 ms) + 지수감쇄
+/// - harmonicAmps: 기음(h=1)을 1.0 기준으로 각 배음의 상대 진폭
+List<double> _synthesizeGuitar(
+  double freqHz, {
+  double durationSec = 1.5,
+  int sampleRate = _sampleRate,
+  double inharmonicity = 0.0003,
+  List<double> harmonicAmps = const [1.0, 0.7, 0.5, 0.35, 0.25, 0.18, 0.12],
+  double decayRate = 4.0,
+}) {
+  final n = (durationSec * sampleRate).round();
+  final signal = List<double>.filled(n, 0.0);
+  const attackSec = 0.005;
+  for (var h = 1; h <= harmonicAmps.length; h++) {
+    final fh = freqHz * h * sqrt(1.0 + inharmonicity * h * h);
+    for (var i = 0; i < n; i++) {
+      final t = i / sampleRate;
+      final attack = t < attackSec ? t / attackSec : 1.0;
+      final env = attack * exp(-decayRate * t);
+      signal[i] += harmonicAmps[h - 1] * env * sin(2 * pi * fh * t);
+    }
+  }
+  final maxAmp = signal.map((s) => s.abs()).reduce(max);
+  if (maxAmp < 1e-6) return signal;
+  return signal.map((s) => s / maxAmp * 0.9).toList();
+}
+
 List<double> computeCmndf(List<double> samples) {
   final halfN = samples.length ~/ 2;
   final diff = List<double>.filled(halfN, 0.0);
@@ -704,6 +792,442 @@ void main() {
           // ignore: avoid_print
           print('  ${e.key.padRight(10)}: 안전');
         }
+      }
+    });
+  });
+
+  // ── 실제 환경 시뮬레이션 ──────────────────────────────────────────────────
+  //
+  // 각 그룹은 실제 디바이스에서 발생하는 조건을 WAV 샘플에 적용한다.
+  // 테스트 통과 → 알고리즘이 해당 조건에 강인함.
+  // 테스트 실패 → 실제 앱에서 같은 조건에서 오감지가 발생한다는 증거.
+
+  // ── 배경 소음 SNR 20 dB (조용한 방) ─────────────────────────────────────
+  group('실제 환경 시뮬레이션 – 배경 소음 SNR 20 dB', () {
+    // SNR 20 dB ≈ 조용한 실내. 이 조건에서도 정확도를 유지해야 한다.
+    final rng = Random(42);
+    const snrDb = 20.0;
+    const noiseThr = <String, double>{
+      'E2 (6현)': 0.65,
+      'A2 (5현)': 0.80,
+      'D3 (4현)': 0.80,
+      'G3 (3현)': 0.75,
+      'B3 (2현)': 0.80,
+      'E4 (1현)': 0.80,
+    };
+    for (final e in strings.entries) {
+      test(e.key, () async {
+        final path = _audioPath(noteFile[e.key]!);
+        if (!File(path).existsSync()) { markTestSkipped('파일 없음: $path'); return; }
+        final chunks = _chunks(_loadWav(path));
+        final detected = await _detectAllPipelineExt(
+          detector, chunks,
+          preProcess: (c) => _addNoise(c, snrDb, rng),
+        );
+        expect(detected, isNotEmpty, reason: '${e.key} – SNR20dB에서 감지 실패');
+        final target = e.value;
+        final correct = detected.where((f) => (f - target).abs() / target < 0.05).length;
+        final ratio = correct / detected.length;
+        // ignore: avoid_print
+        print('${e.key} SNR20dB: ${(ratio * 100).toStringAsFixed(0)}%'
+            ' (${correct}/${detected.length})');
+        expect(ratio, greaterThanOrEqualTo(noiseThr[e.key]!),
+            reason: '${e.key} – SNR20dB 정답률 부족');
+      });
+    }
+  });
+
+  // ── 배경 소음 SNR 10 dB (시끄러운 환경) ─────────────────────────────────
+  group('실제 환경 시뮬레이션 – 배경 소음 SNR 10 dB', () {
+    // SNR 10 dB ≈ 시끄러운 카페/스튜디오. 알고리즘 한계를 확인하는 경계 조건.
+    final rng = Random(42);
+    const snrDb = 10.0;
+    const noiseThr = <String, double>{
+      'E2 (6현)': 0.35,
+      'A2 (5현)': 0.45,
+      'D3 (4현)': 0.45,
+      'G3 (3현)': 0.40,
+      'B3 (2현)': 0.50,
+      'E4 (1현)': 0.50,
+    };
+    for (final e in strings.entries) {
+      test(e.key, () async {
+        final path = _audioPath(noteFile[e.key]!);
+        if (!File(path).existsSync()) { markTestSkipped('파일 없음: $path'); return; }
+        final chunks = _chunks(_loadWav(path));
+        final detected = await _detectAllPipelineExt(
+          detector, chunks,
+          preProcess: (c) => _addNoise(c, snrDb, rng),
+        );
+        if (detected.isEmpty) {
+          // ignore: avoid_print
+          print('${e.key} SNR10dB: 감지 없음');
+          return;
+        }
+        final target = e.value;
+        final correct = detected.where((f) => (f - target).abs() / target < 0.05).length;
+        final ratio = correct / detected.length;
+        // ignore: avoid_print
+        print('${e.key} SNR10dB: ${(ratio * 100).toStringAsFixed(0)}%'
+            ' (${correct}/${detected.length})');
+        expect(ratio, greaterThanOrEqualTo(noiseThr[e.key]!),
+            reason: '${e.key} – SNR10dB 정답률 부족');
+      });
+    }
+  });
+
+  // ── AGC 시뮬레이션 (Android 청크별 자동이득조절) ─────────────────────────
+  group('실제 환경 시뮬레이션 – AGC (청크별 RMS 정규화)', () {
+    // AGC는 파형 형태를 보존하므로 이상적으로는 정확도가 크게 줄지 않아야 한다.
+    // 실패 시: 노이즈 게이트 레벨 기준이 AGC 이후 변해서 문제가 발생함을 의미.
+    const agcThr = <String, double>{
+      'E2 (6현)': 0.70,
+      'A2 (5현)': 0.85,
+      'D3 (4현)': 0.85,
+      'G3 (3현)': 0.80,
+      'B3 (2현)': 0.85,
+      'E4 (1현)': 0.85,
+    };
+    for (final e in strings.entries) {
+      test(e.key, () async {
+        final path = _audioPath(noteFile[e.key]!);
+        if (!File(path).existsSync()) { markTestSkipped('파일 없음: $path'); return; }
+        final chunks = _chunks(_loadWav(path));
+        final detected = await _detectAllPipelineExt(
+          detector, chunks,
+          preProcess: _applyAgcChunk,
+        );
+        expect(detected, isNotEmpty, reason: '${e.key} – AGC 후 감지 실패');
+        final target = e.value;
+        final correct = detected.where((f) => (f - target).abs() / target < 0.05).length;
+        final ratio = correct / detected.length;
+        // ignore: avoid_print
+        print('${e.key} AGC: ${(ratio * 100).toStringAsFixed(0)}%'
+            ' (${correct}/${detected.length})');
+        expect(ratio, greaterThanOrEqualTo(agcThr[e.key]!),
+            reason: '${e.key} – AGC 후 정답률 부족');
+      });
+    }
+  });
+
+  // ── 샘플레이트 불일치 진단 (48000 Hz 디바이스) ─────────────────────────────
+  group('실제 환경 시뮬레이션 – 샘플레이트 불일치 진단 (48000 Hz)', () {
+    // 많은 Android 기기는 48000 Hz로 녹음한다.
+    // 앱이 44100 Hz로 가정하면 주파수가 +8.8% 높게 계산된다.
+    //
+    // 이 테스트는 두 가지를 검증한다:
+    //   1. 44100 Hz (올바른 가정) → 정확도가 높아야 함
+    //   2. 48000 Hz 가정 → 정확도가 현저히 낮아야 함 (≥20%p 차이)
+    //      → 불일치 차이가 없다면 알고리즘이 샘플레이트에 무관하게 안정적이라는 의미
+    for (final e in strings.entries) {
+      test(e.key, () async {
+        final path = _audioPath(noteFile[e.key]!);
+        if (!File(path).existsSync()) { markTestSkipped('파일 없음: $path'); return; }
+        final chunks = _chunks(_loadWav(path));
+
+        final det44k = await _detectAllPipelineExt(detector, chunks, sampleRate: 44100);
+        final det48k = await _detectAllPipelineExt(detector, chunks, sampleRate: 48000);
+
+        final target = e.value;
+        final acc44 = det44k.isEmpty ? 0.0 :
+            det44k.where((f) => (f - target).abs() / target < 0.05).length / det44k.length;
+        final acc48 = det48k.isEmpty ? 0.0 :
+            det48k.where((f) => (f - target).abs() / target < 0.05).length / det48k.length;
+        final med48 = det48k.isEmpty ? 0.0 : _median(det48k);
+
+        // ignore: avoid_print
+        print('${e.key}: 44.1kHz=${(acc44 * 100).toStringAsFixed(0)}%  '
+            '48kHz=${(acc48 * 100).toStringAsFixed(0)}%  '
+            '48kHz중앙값=${med48.toStringAsFixed(1)} Hz'
+            ' (기대: ${target.toStringAsFixed(1)} Hz)');
+
+        // 올바른 44100 Hz 가정은 정확해야 함
+        expect(acc44, greaterThanOrEqualTo(0.70),
+            reason: '${e.key} – 44.1kHz 기준이 이미 부정확함');
+        // 48kHz 불일치 시 정확도가 확연히 낮아야 함 (문제 재현)
+        expect(acc48, lessThan(acc44 - 0.20),
+            reason: '${e.key} – 48kHz 불일치 효과가 미미함'
+                ' (실제 디바이스가 44.1kHz를 제대로 지원하거나, 알고리즘이 샘플레이트에 둔감)');
+      });
+    }
+  });
+
+  // ── 어택 구간 (첫 5청크 ≈ 460 ms) ────────────────────────────────────────
+  group('실제 환경 시뮬레이션 – 어택 구간 (첫 5청크 ≈ 460 ms)', () {
+    // 실제 앱에서 사용자가 줄을 퉁기자마자 표시되는 결과가 이 구간이다.
+    // 어택 구간은 피치가 불안정하므로 기준을 낮게 설정한다.
+    const attackThr = <String, double>{
+      'E2 (6현)': 0.30,
+      'A2 (5현)': 0.50,
+      'D3 (4현)': 0.50,
+      'G3 (3현)': 0.40,
+      'B3 (2현)': 0.55,
+      'E4 (1현)': 0.55,
+    };
+    for (final e in strings.entries) {
+      test(e.key, () async {
+        final path = _audioPath(noteFile[e.key]!);
+        if (!File(path).existsSync()) { markTestSkipped('파일 없음: $path'); return; }
+        final allChunks = _chunks(_loadWav(path));
+        final attackChunks = allChunks.take(5).toList();
+
+        final detected = await _detectAllPipelineExt(detector, attackChunks);
+        if (detected.isEmpty) {
+          // ignore: avoid_print
+          print('${e.key} 어택: 감지 없음 (5청크 모두 무신호 또는 미감지)');
+          return;
+        }
+        final target = e.value;
+        final correct = detected.where((f) => (f - target).abs() / target < 0.05).length;
+        final ratio = correct / detected.length;
+        // ignore: avoid_print
+        print('${e.key} 어택5청크: ${(ratio * 100).toStringAsFixed(0)}%'
+            ' (${correct}/${detected.length})'
+            ' 중앙값=${_median(detected).toStringAsFixed(1)} Hz');
+        expect(ratio, greaterThanOrEqualTo(attackThr[e.key]!),
+            reason: '${e.key} – 어택 구간 정답률 부족');
+      });
+    }
+  });
+
+  // ── 합성 기타 신호 – 실제 하모닉 + 비조화성 ─────────────────────────────
+  //
+  // tonejs-instruments WAV보다 실제 기타에 훨씬 가까운 하모닉 구조.
+  // 저음 현(E2~G3)은 2배음이 기음만큼 강하고, 비조화성으로 배음 주파수가
+  // 정수 배보다 살짝 높다 (실제 현 물리학).
+  //
+  // 이 테스트 실패 시:
+  //   → YIN의 first-dip이 강한 2배음을 기음으로 오탐하고 있음.
+  //   → octave correction 조건이 실제 기타 신호를 커버하지 못함.
+  group('합성 기타 신호 – 실제 하모닉 + 비조화성', () {
+    // 각 현의 실측 기반 하모닉 진폭 비율.
+    // 저음 현일수록 2배음이 강하고, 고음 현은 기음이 지배적.
+    const harmonics = <String, List<double>>{
+      'E2 (6현)': [1.0, 0.85, 0.65, 0.50, 0.38, 0.28, 0.20, 0.14],
+      'A2 (5현)': [1.0, 0.75, 0.55, 0.40, 0.28, 0.20, 0.14],
+      'D3 (4현)': [1.0, 0.65, 0.45, 0.30, 0.20, 0.14],
+      'G3 (3현)': [1.0, 0.55, 0.35, 0.22, 0.14],
+      'B3 (2현)': [1.0, 0.45, 0.28, 0.16, 0.10],
+      'E4 (1현)': [1.0, 0.38, 0.22, 0.12, 0.07],
+    };
+    // 비조화성 계수 B (저음 현이 클수록 높음).
+    const inharmonicity = <String, double>{
+      'E2 (6현)': 0.0008,
+      'A2 (5현)': 0.0006,
+      'D3 (4현)': 0.0004,
+      'G3 (3현)': 0.0003,
+      'B3 (2현)': 0.0002,
+      'E4 (1현)': 0.0001,
+    };
+
+    for (final e in strings.entries) {
+      test(e.key, () async {
+        final synth = _synthesizeGuitar(
+          e.value,
+          harmonicAmps: harmonics[e.key]!,
+          inharmonicity: inharmonicity[e.key]!,
+        );
+        final chunks = _chunks(synth);
+        final detected = await _detectAllPipelineExt(detector, chunks);
+
+        if (detected.isEmpty) {
+          fail('${e.key} – 합성 신호에서 감지 없음');
+        }
+        final target = e.value;
+        final correct =
+            detected.where((f) => (f - target).abs() / target < 0.05).length;
+        final ratio = correct / detected.length;
+        final med = _median(detected);
+        // ignore: avoid_print
+        print('${e.key} 합성: ${(ratio * 100).toStringAsFixed(0)}%'
+            ' (${correct}/${detected.length})'
+            ' 중앙값=${med.toStringAsFixed(1)} Hz'
+            ' (기대: ${target.toStringAsFixed(1)} Hz)');
+        expect(
+          ratio,
+          greaterThanOrEqualTo(0.80),
+          reason: '${e.key} – 실제 하모닉 구조에서 정답률 부족. '
+              '2배음 오탐 가능성: 중앙값=${med.toStringAsFixed(1)} Hz',
+        );
+      });
+    }
+  });
+
+  // ── 실제 연주 시나리오 시뮬레이션 ───────────────────────────────────────
+  group('실제 연주 시나리오 – 2배음 우세 (강한 발현)', () {
+    // 강한 발현(픽 스트로크) 또는 특정 마이크 위치에서 2배음이 기음보다 강해짐.
+    // tonejs-instruments 샘플엔 없는 조건.
+    // 실패 시: octave correction이 이 케이스를 커버하지 못함.
+    const dominantHarmonics = <String, List<double>>{
+      'E2 (6현)': [1.0, 1.30, 0.80, 0.55, 0.40, 0.28],
+      'A2 (5현)': [1.0, 1.20, 0.70, 0.45, 0.30, 0.20],
+      'D3 (4현)': [1.0, 1.10, 0.60, 0.38, 0.24],
+      'G3 (3현)': [1.0, 1.05, 0.50, 0.30, 0.18],
+      'B3 (2현)': [1.0, 0.90, 0.45, 0.25],
+      'E4 (1현)': [1.0, 0.75, 0.35, 0.18],
+    };
+    const inharmonicity = <String, double>{
+      'E2 (6현)': 0.0008, 'A2 (5현)': 0.0006, 'D3 (4현)': 0.0004,
+      'G3 (3현)': 0.0003, 'B3 (2현)': 0.0002, 'E4 (1현)': 0.0001,
+    };
+    for (final e in strings.entries) {
+      test(e.key, () async {
+        final synth = _synthesizeGuitar(
+          e.value,
+          harmonicAmps: dominantHarmonics[e.key]!,
+          inharmonicity: inharmonicity[e.key]!,
+        );
+        final detected = await _detectAllPipelineExt(detector, _chunks(synth));
+        if (detected.isEmpty) { fail('${e.key} – 2배음 우세 신호에서 감지 없음'); }
+        final target = e.value;
+        final correct =
+            detected.where((f) => (f - target).abs() / target < 0.05).length;
+        final ratio = correct / detected.length;
+        // ignore: avoid_print
+        print('${e.key} 2배음우세: ${(ratio * 100).toStringAsFixed(0)}%'
+            ' 중앙값=${_median(detected).toStringAsFixed(1)} Hz'
+            ' (기대: ${target.toStringAsFixed(1)} Hz)');
+        expect(ratio, greaterThanOrEqualTo(0.80),
+            reason: '${e.key} – 2배음 우세 조건에서 octave correction 실패');
+      });
+    }
+  });
+
+  group('실제 연주 시나리오 – 공명 현 간섭 (sympathetic resonance)', () {
+    // 목표 현을 튕기면 다른 현도 공명한다. 혼합 신호에서 기음을 정확히 찾아야 함.
+    for (final e in strings.entries) {
+      test(e.key, () async {
+        final target = e.value;
+        // 목표 현 합성
+        final main = _synthesizeGuitar(target, durationSec: 1.5,
+            harmonicAmps: const [1.0, 0.7, 0.5, 0.35, 0.25]);
+        // 다른 현들이 10% 진폭으로 공명 (빠르게 감쇄)
+        final resonant = strings.values
+            .where((f) => (f - target).abs() / target > 0.05)
+            .toList();
+        final n = main.length;
+        final signal = [...main];
+        for (final rf in resonant) {
+          for (var i = 0; i < n; i++) {
+            final t = i / _sampleRate;
+            signal[i] += 0.10 * exp(-8.0 * t) * sin(2 * pi * rf * t);
+          }
+        }
+        final maxAmp = signal.map((s) => s.abs()).reduce(max);
+        final normalized = signal.map((s) => s / maxAmp * 0.9).toList();
+
+        final detected =
+            await _detectAllPipelineExt(detector, _chunks(normalized));
+        if (detected.isEmpty) { fail('${e.key} – 공명 간섭 신호에서 감지 없음'); }
+        final correct =
+            detected.where((f) => (f - target).abs() / target < 0.05).length;
+        final ratio = correct / detected.length;
+        // ignore: avoid_print
+        print('${e.key} 공명간섭: ${(ratio * 100).toStringAsFixed(0)}%'
+            ' 중앙값=${_median(detected).toStringAsFixed(1)} Hz');
+        expect(ratio, greaterThanOrEqualTo(0.80),
+            reason: '${e.key} – 공명 현 간섭 조건에서 정답률 부족');
+      });
+    }
+  });
+
+  group('실제 연주 시나리오 – 약한 발현 (진폭 5배 감쇄)', () {
+    // 소프트 피킹이나 핑거피킹 시 진폭이 낮아진다.
+    // 노이즈 게이트 경계 근처에서의 감지 안정성을 검증.
+    for (final e in strings.entries) {
+      test(e.key, () async {
+        final full = _synthesizeGuitar(e.value,
+            harmonicAmps: const [1.0, 0.7, 0.5, 0.35, 0.25, 0.18]);
+        // 진폭 5배 감쇄 → 피크 ≈ 0.18, RMS ≈ 0.06 (노이즈 게이트 0.01 이상)
+        final soft = full.map((s) => s / 5.0).toList();
+        final detected = await _detectAllPipelineExt(detector, _chunks(soft));
+        if (detected.isEmpty) {
+          // ignore: avoid_print
+          print('${e.key} 약발현: 감지 없음 (노이즈 게이트 이하)');
+          return;
+        }
+        final target = e.value;
+        final correct =
+            detected.where((f) => (f - target).abs() / target < 0.05).length;
+        final ratio = correct / detected.length;
+        // ignore: avoid_print
+        print('${e.key} 약발현: ${(ratio * 100).toStringAsFixed(0)}%'
+            ' (${correct}/${detected.length})');
+        expect(ratio, greaterThanOrEqualTo(0.80),
+            reason: '${e.key} – 약한 발현에서 정답률 부족');
+      });
+    }
+  });
+
+  // ── B3 공명 간섭 실패 원인 진단 ──────────────────────────────────────────
+  group('B3 공명 간섭 – 오탐 주파수 & 간섭 레벨 민감도', () {
+    test('오탐 주파수 분포 및 레벨별 정확도', () async {
+      const target = 246.94; // B3
+      // ignore: avoid_print
+      print('\n─── B3 공명 간섭 레벨별 정확도 ───');
+
+      for (final level in [0.02, 0.05, 0.08, 0.10, 0.15]) {
+        final main = _synthesizeGuitar(target, durationSec: 1.5,
+            harmonicAmps: const [1.0, 0.7, 0.5, 0.35, 0.25]);
+        final n = main.length;
+        final signal = [...main];
+        // E4 (329.63 Hz) 만 집중 분석
+        for (var i = 0; i < n; i++) {
+          final t = i / _sampleRate;
+          signal[i] += level * exp(-8.0 * t) * sin(2 * pi * 329.63 * t);
+        }
+        final maxAmp = signal.map((s) => s.abs()).reduce(max);
+        final normalized = signal.map((s) => s / maxAmp * 0.9).toList();
+        final detected =
+            await _detectAllPipelineExt(detector, _chunks(normalized));
+        final correct =
+            detected.where((f) => (f - target).abs() / target < 0.05).length;
+        final wrong = detected.where((f) => (f - target).abs() / target >= 0.05).toList();
+        final ratio = detected.isEmpty ? 0.0 : correct / detected.length;
+        // 오탐 주파수 버킷
+        final buckets = <int, int>{};
+        for (final f in wrong) {
+          final b = (f / 10).round() * 10;
+          buckets[b] = (buckets[b] ?? 0) + 1;
+        }
+        final topBuckets = (buckets.entries.toList()
+            ..sort((a, b) => b.value - a.value))
+            .take(3)
+            .map((e) => '~${e.key}Hz:${e.value}')
+            .join(', ');
+        // ignore: avoid_print
+        print('  E4 공명 ${(level * 100).toStringAsFixed(0)}%:'
+            ' 정답률=${(ratio * 100).toStringAsFixed(0)}%'
+            ' (${correct}/${detected.length})'
+            ' 오탐=${topBuckets.isEmpty ? "없음" : topBuckets}');
+      }
+    });
+
+    test('B3 + E4 공명 CMNDF 분석 (tau=134 vs tau=179)', () {
+      const target = 246.94;
+      const e4Freq = 329.63;
+      // ignore: avoid_print
+      print('\n─── B3+E4 공명 CMNDF tau 비교 ───');
+      const tauB3 = 179; // 44100/246.94 ≈ 179
+      const tauE4 = 134; // 44100/329.63 ≈ 134
+      for (final level in [0.0, 0.05, 0.10]) {
+        final n = _bufSize;
+        final signal = List<double>.filled(n, 0.0);
+        for (var i = 0; i < n; i++) {
+          final t = i / _sampleRate;
+          signal[i] = sin(2 * pi * target * t)
+              + 0.7 * sin(2 * pi * target * 2 * t)
+              + 0.5 * sin(2 * pi * target * 3 * t);
+          if (level > 0) {
+            signal[i] += level * sin(2 * pi * e4Freq * t);
+          }
+        }
+        final c = computeCmndf(signal);
+        // ignore: avoid_print
+        print('  E4 ${(level * 100).toStringAsFixed(0)}%:'
+            ' CMNDF[${tauE4}]=${c[tauE4].toStringAsFixed(4)}'
+            ' CMNDF[${tauB3}]=${c[tauB3].toStringAsFixed(4)}'
+            ' → first-dip=${c[tauE4] < c[tauB3] ? "E4(오탐)" : "B3(정탐)"}');
       }
     });
   });

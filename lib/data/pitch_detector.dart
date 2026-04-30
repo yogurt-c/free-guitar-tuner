@@ -12,8 +12,8 @@ class PitchDetector {
   static const _minFreq = 70.0;
   static const _maxFreq = 1400.0;
 
-  Future<double?> detect(List<double> samples) {
-    return compute(_runYin, (samples: samples, sampleRate: _sampleRate));
+  Future<double?> detect(List<double> samples, {int sampleRate = _sampleRate}) {
+    return compute(_runYin, (samples: samples, sampleRate: sampleRate));
   }
 
   static double? _runYin(_YinArgs args) =>
@@ -82,7 +82,11 @@ class PitchDetector {
       final c0 = cmndf[tauEstimate];
       final octaveTau = tauEstimate * 2;
       final inHighHarmonicZone = tauEstimate < tauMin * 4; // 경로 A
-      final inLowFreqZone = octaveTau > tauMax ~/ 2; // 경로 B
+      // 경로 B: E2·A2의 2배음 오탐 교정 (교정 대상 주파수 < 140 Hz).
+      // tauEstimate > 190 하한으로 B3(tau≈179, 247Hz)을 제외.
+      //   근거: A2 2배음(220Hz, tau≈200) ≥ 191 → 포함 / B3(247Hz, tau=179) < 191 → 제외.
+      //   공명 현 간섭 시 B3에서 경로 B가 오발동해 247Hz → 123Hz 오탐하는 문제 방지.
+      final inLowFreqZone = octaveTau > tauMax ~/ 2 && tauEstimate > 190; // 경로 B
       if (c0 > 0.001 && octaveTau <= tauMax && (inHighHarmonicZone || inLowFreqZone)) {
         var octaveMin = 1.0;
         for (var t = max(tauMin, octaveTau - 25);
