@@ -28,7 +28,7 @@ class AudioPipeline {
     _subscription = _capture.stream
         .asyncMap((samples) async {
           final signalLevel = _rms(samples);
-          final freq = await _detector.detect(samples);
+          final freq = await _detector.detect(samples, sampleRate: AudioCapture.sampleRate);
           return PitchResult(
             freq: freq != null ? _smooth(freq) : null,
             signalLevel: signalLevel,
