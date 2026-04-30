@@ -2,14 +2,12 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_soloud/flutter_soloud.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'presentation/home_shell.dart';
 import 'presentation/tuning_selector/tuning_selection_notifier.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SoLoud.instance.init();
 
   final prefs = await SharedPreferences.getInstance();
   final savedDark = prefs.getBool('theme_is_dark');

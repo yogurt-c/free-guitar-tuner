@@ -25,12 +25,6 @@ class TuneResult {
 }
 
 class NoteAnalyzer {
-  static const _noteNames = [
-    'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B',
-  ];
-  static const _a4Midi = 69;
-  static const _a4Freq = 440.0;
-
   // 감지된 주파수를 특정 타겟 음과 비교해 cents 편차를 계산한다.
   static TuneResult analyzeAgainstTarget(double detectedFreq, Note target) {
     final cents = 1200 * log(detectedFreq / target.freq) / ln2;
@@ -38,25 +32,6 @@ class NoteAnalyzer {
       noteName: target.name,
       octave: target.octave,
       targetFreq: target.freq,
-      detectedFreq: detectedFreq,
-      cents: cents,
-      state: _tuneState(cents),
-    );
-  }
-
-  // 감지된 주파수에서 가장 가까운 12음 평균율 음을 찾고 cents 편차를 계산한다.
-  static TuneResult analyzeFrequency(double detectedFreq) {
-    final n = 12 * log(detectedFreq / _a4Freq) / ln2;
-    final midiOffset = n.round();
-    final midi = _a4Midi + midiOffset;
-    final targetFreq = _a4Freq * pow(2, midiOffset / 12.0);
-    final cents = (n - midiOffset) * 100;
-    final noteIndex = midi % 12;
-    final octave = midi ~/ 12 - 1;
-    return TuneResult(
-      noteName: _noteNames[noteIndex],
-      octave: octave,
-      targetFreq: targetFreq.toDouble(),
       detectedFreq: detectedFreq,
       cents: cents,
       state: _tuneState(cents),

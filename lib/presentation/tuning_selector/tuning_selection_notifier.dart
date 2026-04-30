@@ -8,7 +8,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../domain/analyzer/note_analyzer.dart';
 import '../../domain/model/tuning_preset.dart';
 import '../metronome/metronome_notifier.dart';
-import '../tuner/tuner_notifier.dart';
 
 enum AppMode { tuner, metronome }
 
@@ -36,7 +35,7 @@ class TuningSelectionState {
       TuningSelectionState(
         presetKey: 'standard',
         selectedString: 0,
-        autoDetect: false,
+        autoDetect: true,
         tunedStrings: const {},
         isDark: isDark,
         mode: AppMode.tuner,
@@ -63,51 +62,53 @@ class TuningSelectionState {
 class TuningSelectionNotifier extends Notifier<TuningSelectionState> {
   static const _autoDetectMaxCents = 200.0;
 
+  Timer? _inTuneTimer;
+
   @override
   TuningSelectionState build() {
-    Timer? inTuneTimer;
-
-    ref.listen<TunerState>(tunerProvider, (_, next) {
-      if (state.mode != AppMode.tuner) {
-        inTuneTimer?.cancel();
-        inTuneTimer = null;
-        return;
-      }
-
-      final tuneResult = next.tuneResult;
-
-      if (tuneResult == null) {
-        inTuneTimer?.cancel();
-        inTuneTimer = null;
-        return;
-      }
-
-      if (state.autoDetect && next.detectedFreq != null) {
-        _autoDetectString(next.detectedFreq!);
-      }
-
-      if (tuneResult.state == TuneState.inTune) {
-        inTuneTimer ??= Timer(const Duration(milliseconds: 500), () {
-          if (state.mode != AppMode.tuner) {
-            inTuneTimer = null;
-            return;
-          }
-          final alreadyTuned = state.tunedStrings.contains(state.selectedString);
-          state = state.copyWith(
-            tunedStrings: {...state.tunedStrings, state.selectedString},
-          );
-          if (!alreadyTuned) HapticFeedback.mediumImpact();
-          inTuneTimer = null;
-        });
-      } else {
-        inTuneTimer?.cancel();
-        inTuneTimer = null;
-      }
+    ref.onDispose(() {
+      _inTuneTimer?.cancel();
+      _inTuneTimer = null;
     });
 
-    ref.onDispose(() => inTuneTimer?.cancel());
-
     return TuningSelectionState.initial(isDark: ref.read(initialThemeDarkProvider));
+  }
+
+  /// TunerNotifier._onPitchResult()에서 호출 — tunerProvider 의존성 없이 처리.
+  void onTunerUpdate({required TuneResult? tuneResult}) {
+    if (state.mode != AppMode.tuner) {
+      _inTuneTimer?.cancel();
+      _inTuneTimer = null;
+      return;
+    }
+
+    if (tuneResult == null) {
+      _inTuneTimer?.cancel();
+      _inTuneTimer = null;
+      return;
+    }
+
+    if (state.autoDetect) {
+      _autoDetectString(tuneResult.detectedFreq);
+    }
+
+    if (tuneResult.state == TuneState.inTune) {
+      _inTuneTimer ??= Timer(const Duration(milliseconds: 500), () {
+        if (state.mode != AppMode.tuner) {
+          _inTuneTimer = null;
+          return;
+        }
+        final alreadyTuned = state.tunedStrings.contains(state.selectedString);
+        state = state.copyWith(
+          tunedStrings: {...state.tunedStrings, state.selectedString},
+        );
+        if (!alreadyTuned) HapticFeedback.mediumImpact();
+        _inTuneTimer = null;
+      });
+    } else {
+      _inTuneTimer?.cancel();
+      _inTuneTimer = null;
+    }
   }
 
   void selectPreset(String key) {
