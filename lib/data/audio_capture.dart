@@ -7,7 +7,7 @@ import 'package:record/record.dart';
 
 class AudioCapture {
   static const sampleRate = 44100;
-  static const bufferSamples = 2048;
+  static const bufferSamples = 4096;
   static const _bytesPerSample = 2; // PCM16
 
   final _recorder = AudioRecorder();

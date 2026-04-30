@@ -12,7 +12,7 @@ class PitchResult {
 
 /// AudioCapture 스트림을 PitchDetector에 연결해 pitch + signalLevel을 스트리밍한다.
 class AudioPipeline {
-  static const _smoothingFrames = 5;
+  static const _smoothingFrames = 3;
 
   final _capture = AudioCapture();
   final _detector = PitchDetector();
@@ -48,6 +48,8 @@ class AudioPipeline {
         ? sorted[mid]
         : (sorted[mid - 1] + sorted[mid]) / 2.0;
   }
+
+  void resetBuffer() => _freqBuffer.clear();
 
   Future<void> stop() async {
     await _subscription?.cancel();

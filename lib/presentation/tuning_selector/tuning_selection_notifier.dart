@@ -61,8 +61,12 @@ class TuningSelectionState {
 
 class TuningSelectionNotifier extends Notifier<TuningSelectionState> {
   static const _autoDetectMaxCents = 200.0;
+  // 같은 현이 연속으로 감지되어야 전환 — 단일 프레임 오탐 방지
+  static const _autoDetectHoldFrames = 3;
 
   Timer? _inTuneTimer;
+  int _autoDetectCandidate = -1;
+  int _autoDetectCandidateCount = 0;
 
   @override
   TuningSelectionState build() {
@@ -85,6 +89,8 @@ class TuningSelectionNotifier extends Notifier<TuningSelectionState> {
     if (tuneResult == null) {
       _inTuneTimer?.cancel();
       _inTuneTimer = null;
+      _autoDetectCandidate = -1;
+      _autoDetectCandidateCount = 0;
       return;
     }
 
@@ -123,6 +129,8 @@ class TuningSelectionNotifier extends Notifier<TuningSelectionState> {
   }
 
   void selectString(int index) {
+    _autoDetectCandidate = -1;
+    _autoDetectCandidateCount = 0;
     state = state.copyWith(selectedString: index);
   }
 
@@ -158,10 +166,29 @@ class TuningSelectionNotifier extends Notifier<TuningSelectionState> {
       }
     }
 
-    if (bestIdx != null &&
-        bestCentsAbs < _autoDetectMaxCents &&
-        bestIdx != state.selectedString) {
-      state = state.copyWith(selectedString: bestIdx);
+    if (bestIdx == null || bestCentsAbs >= _autoDetectMaxCents) {
+      _autoDetectCandidate = -1;
+      _autoDetectCandidateCount = 0;
+      return;
+    }
+
+    if (bestIdx == state.selectedString) {
+      _autoDetectCandidate = -1;
+      _autoDetectCandidateCount = 0;
+      return;
+    }
+
+    // 같은 현이 연속으로 감지될 때만 전환 (오탐 방지)
+    if (bestIdx == _autoDetectCandidate) {
+      _autoDetectCandidateCount++;
+      if (_autoDetectCandidateCount >= _autoDetectHoldFrames) {
+        state = state.copyWith(selectedString: bestIdx);
+        _autoDetectCandidate = -1;
+        _autoDetectCandidateCount = 0;
+      }
+    } else {
+      _autoDetectCandidate = bestIdx;
+      _autoDetectCandidateCount = 1;
     }
   }
 }
