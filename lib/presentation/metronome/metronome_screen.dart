@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -44,7 +46,13 @@ class MetronomeScreen extends ConsumerWidget {
               onSelect: notifier.setBeatsPerBar,
             ),
             const SizedBox(height: 32),
-            _BpmSlider(theme: theme, metro: metro, onChanged: notifier.setBpm),
+            _BpmSlider(
+              theme: theme,
+              metro: metro,
+              onChanged: notifier.setBpm,
+              onIncrement: notifier.incrementBpm,
+              onDecrement: notifier.decrementBpm,
+            ),
             const Spacer(),
             _PlayButton(theme: theme, isPlaying: metro.isPlaying, onTap: notifier.togglePlay),
             SizedBox(height: MediaQuery.of(context).padding.bottom + 40),
@@ -181,35 +189,49 @@ class _BpmSlider extends StatelessWidget {
     required this.theme,
     required this.metro,
     required this.onChanged,
+    required this.onIncrement,
+    required this.onDecrement,
   });
 
   final AppTheme theme;
   final MetronomeState metro;
   final void Function(int) onChanged;
+  final VoidCallback onIncrement;
+  final VoidCallback onDecrement;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         children: [
-          SliderTheme(
-            data: SliderThemeData(
-              trackHeight: 2,
-              activeTrackColor: theme.accent,
-              inactiveTrackColor: theme.surface2,
-              thumbColor: theme.accent,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-              overlayColor: theme.accent.withAlpha(30),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 18),
-            ),
-            child: Slider(
-              value: metro.bpm.toDouble(),
-              min: 40,
-              max: 220,
-              divisions: 180,
-              onChanged: (v) => onChanged(v.round()),
-            ),
+          Row(
+            children: [
+              _BpmAdjustButton(theme: theme, isIncrement: false, onStep: onDecrement),
+              const SizedBox(width: 4),
+              Expanded(
+                child: SliderTheme(
+                  data: SliderThemeData(
+                    trackHeight: 2,
+                    activeTrackColor: theme.accent,
+                    inactiveTrackColor: theme.surface2,
+                    thumbColor: theme.accent,
+                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+                    overlayColor: theme.accent.withAlpha(30),
+                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 18),
+                  ),
+                  child: Slider(
+                    value: metro.bpm.toDouble(),
+                    min: 40,
+                    max: 220,
+                    divisions: 180,
+                    onChanged: (v) => onChanged(v.round()),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              _BpmAdjustButton(theme: theme, isIncrement: true, onStep: onIncrement),
+            ],
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -223,6 +245,84 @@ class _BpmSlider extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _BpmAdjustButton extends StatefulWidget {
+  const _BpmAdjustButton({
+    required this.theme,
+    required this.isIncrement,
+    required this.onStep,
+  });
+
+  final AppTheme theme;
+  final bool isIncrement;
+  final VoidCallback onStep;
+
+  @override
+  State<_BpmAdjustButton> createState() => _BpmAdjustButtonState();
+}
+
+class _BpmAdjustButtonState extends State<_BpmAdjustButton> {
+  Timer? _delayTimer;
+  Timer? _rapidTimer;
+  bool _isPressed = false;
+
+  @override
+  void dispose() {
+    _delayTimer?.cancel();
+    _rapidTimer?.cancel();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails _) {
+    setState(() => _isPressed = true);
+    widget.onStep();
+    _delayTimer = Timer(const Duration(milliseconds: 400), () {
+      _rapidTimer = Timer.periodic(const Duration(milliseconds: 80), (_) {
+        widget.onStep();
+      });
+    });
+  }
+
+  void _onTapUp(TapUpDetails _) => _release();
+  void _onTapCancel() => _release();
+
+  void _release() {
+    setState(() => _isPressed = false);
+    _delayTimer?.cancel();
+    _rapidTimer?.cancel();
+    _delayTimer = null;
+    _rapidTimer = null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: _onTapDown,
+      onTapUp: _onTapUp,
+      onTapCancel: _onTapCancel,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 80),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+        decoration: BoxDecoration(
+          color: _isPressed ? widget.theme.accent.withAlpha(30) : widget.theme.surface2,
+          borderRadius: BorderRadius.circular(10),
+          border: _isPressed
+              ? Border.all(color: widget.theme.accent.withAlpha(180))
+              : null,
+        ),
+        child: Text(
+          widget.isIncrement ? '+' : '−',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            height: 1,
+            color: _isPressed ? widget.theme.accent : widget.theme.textMuted,
+          ),
+        ),
       ),
     );
   }
