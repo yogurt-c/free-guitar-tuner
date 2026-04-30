@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/audio_capture.dart';
@@ -9,13 +10,11 @@ import '../../domain/model/tuning_preset.dart';
 import '../tuning_selector/tuning_selection_notifier.dart';
 
 class TunerState {
-  final double? detectedFreq;
   final TuneResult? tuneResult;
   final double signalLevel;
   final bool permissionDenied;
 
   const TunerState({
-    this.detectedFreq,
     this.tuneResult,
     this.signalLevel = 0.0,
     this.permissionDenied = false,
@@ -38,6 +37,8 @@ class TunerNotifier extends Notifier<TunerState> {
         _subscription = _pipeline.pitchStream.listen(_onPitchResult);
       } on MicrophonePermissionException {
         state = const TunerState(permissionDenied: true);
+      } catch (e) {
+        debugPrint('[TunerNotifier] audio init failed: $e');
       }
     });
 
@@ -50,8 +51,11 @@ class TunerNotifier extends Notifier<TunerState> {
   }
 
   void _onPitchResult(PitchResult result) {
+    final selectionNotifier = ref.read(tuningSelectionProvider.notifier);
+
     if (result.signalLevel < _noiseGateThreshold || result.freq == null) {
       state = TunerState(signalLevel: result.signalLevel);
+      selectionNotifier.onTunerUpdate(tuneResult: null);
       return;
     }
 
@@ -61,10 +65,10 @@ class TunerNotifier extends Notifier<TunerState> {
     final tuneResult = NoteAnalyzer.analyzeAgainstTarget(result.freq!, targetNote);
 
     state = TunerState(
-      detectedFreq: result.freq,
       tuneResult: tuneResult,
       signalLevel: result.signalLevel,
     );
+    selectionNotifier.onTunerUpdate(tuneResult: tuneResult);
   }
 }
 

@@ -85,6 +85,9 @@ class MetronomeNotifier extends Notifier<MetronomeState> {
   }
 
   Future<void> _loadSounds() async {
+    if (!SoLoud.instance.isInitialized) {
+      await SoLoud.instance.init();
+    }
     _accentSource = await SoLoud.instance.loadMem(
       'click_accent',
       buildClickWav(accent: true),

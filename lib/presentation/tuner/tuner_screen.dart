@@ -33,11 +33,12 @@ class TunerScreen extends ConsumerWidget {
     final bool inTune = tuneResult?.state == TuneState.inTune;
     final String noteName = tuneResult?.noteName ?? targetNote.name;
     final int octave = tuneResult?.octave ?? targetNote.octave;
-    final double currentFreq = tuner.detectedFreq ?? targetNote.freq;
+    final double currentFreq = tuner.tuneResult?.detectedFreq ?? targetNote.freq;
 
     if (tuner.permissionDenied) {
       return _PermissionDeniedScreen(theme: theme);
     }
+
 
     return Scaffold(
       backgroundColor: theme.bg,

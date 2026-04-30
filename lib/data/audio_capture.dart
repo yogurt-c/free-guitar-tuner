@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:audio_session/audio_session.dart';
@@ -22,20 +23,16 @@ class AudioCapture {
       throw const MicrophonePermissionException();
     }
 
-    final session = await AudioSession.instance;
-    await session.configure(const AudioSessionConfiguration(
-      avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
-      avAudioSessionCategoryOptions:
-          AVAudioSessionCategoryOptions.defaultToSpeaker,
-      avAudioSessionMode: AVAudioSessionMode.measurement,
-      androidAudioAttributes: AndroidAudioAttributes(
-        contentType: AndroidAudioContentType.music,
-        flags: AndroidAudioFlags.none,
-        usage: AndroidAudioUsage.media,
-      ),
-      androidWillPauseWhenDucked: true,
-    ));
-    await session.setActive(true);
+    if (Platform.isIOS) {
+      final session = await AudioSession.instance;
+      await session.configure(const AudioSessionConfiguration(
+        avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
+        avAudioSessionCategoryOptions:
+            AVAudioSessionCategoryOptions.defaultToSpeaker,
+        avAudioSessionMode: AVAudioSessionMode.measurement,
+      ));
+      await session.setActive(true);
+    }
 
     final audioStream = await _recorder.startStream(
       const RecordConfig(
@@ -53,8 +50,10 @@ class AudioCapture {
     _subscription = null;
     _byteBuffer.clear();
     await _recorder.stop();
-    final session = await AudioSession.instance;
-    await session.setActive(false);
+    if (Platform.isIOS) {
+      final session = await AudioSession.instance;
+      await session.setActive(false);
+    }
   }
 
   Future<void> dispose() async {

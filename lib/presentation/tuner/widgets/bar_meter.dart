@@ -151,10 +151,11 @@ class BarMeter extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          if (isActive)
-            _CentsLabels(theme: theme, cents: cents, inTune: inTune)
-          else
-            const SizedBox(height: 23),
+          AnimatedOpacity(
+            opacity: isActive ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 200),
+            child: _CentsLabels(theme: theme, cents: cents, inTune: inTune),
+          ),
         ],
       ),
     );

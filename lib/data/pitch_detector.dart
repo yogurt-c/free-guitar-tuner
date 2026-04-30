@@ -4,7 +4,7 @@ typedef _YinArgs = ({List<double> samples, int sampleRate});
 
 class PitchDetector {
   static const _sampleRate = 44100;
-  static const _threshold = 0.1;
+  static const _threshold = 0.15;
   static const _minFreq = 70.0;   // E2 아래
   static const _maxFreq = 1400.0; // 1번현 상한
 
