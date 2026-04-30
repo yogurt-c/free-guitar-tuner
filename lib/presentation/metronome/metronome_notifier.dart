@@ -116,9 +116,12 @@ class MetronomeNotifier extends Notifier<MetronomeState> {
   }
 
   void setBpm(int bpm) {
-    state = state.copyWith(bpm: bpm);
-    // 재시작 불필요 — 스케줄러가 state.bpm을 실시간으로 참조함
+    state = state.copyWith(bpm: bpm.clamp(40, 220));
   }
+
+  void incrementBpm() => setBpm(state.bpm + 1);
+
+  void decrementBpm() => setBpm(state.bpm - 1);
 
   void setBeatsPerBar(int beats) {
     state = state.copyWith(beatsPerBar: beats);
