@@ -23,13 +23,23 @@ class TunerState {
 
 class TunerNotifier extends Notifier<TunerState> {
   static const _noiseGateThreshold = 0.01;
+  // 신호 소실 후 gray로 전환하기까지의 대기 시간 (순간 dip으로 인한 깜빡임 방지)
+  static const _resultHoldDuration = Duration(milliseconds: 300);
 
   late final AudioPipeline _pipeline;
   StreamSubscription<PitchResult>? _subscription;
+  Timer? _clearTimer;
 
   @override
   TunerState build() {
     _pipeline = AudioPipeline();
+
+    ref.listen(
+      tuningSelectionProvider.select((s) => s.selectedString),
+      (prev, next) {
+        if (prev != null && prev != next) _pipeline.resetBuffer();
+      },
+    );
 
     Future.microtask(() async {
       try {
@@ -43,6 +53,7 @@ class TunerNotifier extends Notifier<TunerState> {
     });
 
     ref.onDispose(() async {
+      _clearTimer?.cancel();
       await _subscription?.cancel();
       await _pipeline.dispose();
     });
@@ -54,10 +65,18 @@ class TunerNotifier extends Notifier<TunerState> {
     final selectionNotifier = ref.read(tuningSelectionProvider.notifier);
 
     if (result.signalLevel < _noiseGateThreshold || result.freq == null) {
-      state = TunerState(signalLevel: result.signalLevel);
-      selectionNotifier.onTunerUpdate(tuneResult: null);
+      // 마지막 유효 결과를 잠시 유지한 후 gray로 전환
+      if (_clearTimer == null || !_clearTimer!.isActive) {
+        _clearTimer = Timer(_resultHoldDuration, () {
+          state = const TunerState();
+          selectionNotifier.onTunerUpdate(tuneResult: null);
+        });
+      }
       return;
     }
+
+    _clearTimer?.cancel();
+    _clearTimer = null;
 
     final selection = ref.read(tuningSelectionProvider);
     final preset = tuningPresets[selection.presetKey]!;
