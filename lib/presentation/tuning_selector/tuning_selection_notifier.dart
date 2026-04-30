@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../domain/analyzer/note_analyzer.dart';
 import '../../domain/model/tuning_preset.dart';
@@ -10,6 +11,9 @@ import '../metronome/metronome_notifier.dart';
 import '../tuner/tuner_notifier.dart';
 
 enum AppMode { tuner, metronome }
+
+// main()에서 overrideWithValue로 실제 초기값 주입
+final initialThemeDarkProvider = Provider<bool>((_) => true);
 
 class TuningSelectionState {
   final String presetKey;
@@ -28,12 +32,13 @@ class TuningSelectionState {
     required this.mode,
   });
 
-  factory TuningSelectionState.initial() => const TuningSelectionState(
+  factory TuningSelectionState.initial({required bool isDark}) =>
+      TuningSelectionState(
         presetKey: 'standard',
         selectedString: 0,
         autoDetect: false,
-        tunedStrings: {},
-        isDark: true,
+        tunedStrings: const {},
+        isDark: isDark,
         mode: AppMode.tuner,
       );
 
@@ -102,7 +107,7 @@ class TuningSelectionNotifier extends Notifier<TuningSelectionState> {
 
     ref.onDispose(() => inTuneTimer?.cancel());
 
-    return TuningSelectionState.initial();
+    return TuningSelectionState.initial(isDark: ref.read(initialThemeDarkProvider));
   }
 
   void selectPreset(String key) {
@@ -125,7 +130,10 @@ class TuningSelectionNotifier extends Notifier<TuningSelectionState> {
   }
 
   void toggleDark() {
-    state = state.copyWith(isDark: !state.isDark);
+    final newValue = !state.isDark;
+    SharedPreferences.getInstance()
+        .then((p) => p.setBool('theme_is_dark', newValue));
+    state = state.copyWith(isDark: newValue);
   }
 
   void switchMode(AppMode mode) {
