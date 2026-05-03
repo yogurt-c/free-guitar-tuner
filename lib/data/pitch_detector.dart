@@ -2,28 +2,62 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
-typedef _YinArgs = ({List<double> samples, int sampleRate});
+typedef _YinArgs = ({
+  List<double> samples,
+  int sampleRate,
+  List<double> candidates,
+});
 
+/// 다중 후보 기반 YIN 피치 감지기.
+///
+/// 사용자가 튜닝하려는 후보 주파수 목록(현 1개 또는 preset 전체)을 받아,
+/// **각 후보의 ±반옥타브 윈도우를 합집합**으로 묶은 tau 영역에서만 검색한다.
+///
+/// 검색 방식은 표준 YIN 의 first-dip:
+///   가장 짧은 tau 부터 스캔하며 CMNDF 가 임계값(0.15→0.25→0.40 캐스케이드)
+///   미만으로 떨어지는 첫 지역 최솟값을 fundamental 로 간주.
+///
+/// 이렇게 하면:
+/// 1. 윈도우 합집합 밖(예: 70 Hz 미만, 거의 1.4 kHz 이상)은 검색하지 않아
+///    노이즈/배음 오탐을 차단.
+/// 2. first-dip 원리에 의해 fundamental 의 정수배 tau (2T, 3T...) 인 sub-harmonic
+///    dip 은 무시되므로 옥타브-다운 오탐(-1200 cents)이 발생하지 않는다.
 class PitchDetector {
   static const _sampleRate = 44100;
-  static const _threshold = 0.15;
-  static const _thresholdRelaxed = 0.25;
-  static const _thresholdFallback = 0.40;
-  static const _minFreq = 70.0;
-  static const _maxFreq = 1400.0;
 
-  Future<double?> detect(List<double> samples, {int sampleRate = _sampleRate}) {
-    return compute(_runYin, (samples: samples, sampleRate: sampleRate));
+  /// 후보 윈도우 반폭 = √2 (±반옥타브, ±600 cents).
+  static final double _windowFactor = sqrt2;
+
+  /// CMNDF 임계값 캐스케이드.
+  /// 0.15 (표준) → 0.25 (완화) → 0.40 (pYIN 한계).
+  static const _thresholds = <double>[0.15, 0.25, 0.40];
+
+  /// 감지 실행. [candidates]는 비어 있으면 안 된다.
+  ///
+  /// - 수동 모드: 선택된 현 1개의 주파수만 전달
+  /// - 자동 감지 모드: preset 의 모든 현 주파수 전달
+  Future<double?> detect(
+    List<double> samples, {
+    required List<double> candidates,
+    int sampleRate = _sampleRate,
+  }) {
+    assert(candidates.isNotEmpty, 'candidates must not be empty');
+    return compute(_runYin, (
+      samples: samples,
+      sampleRate: sampleRate,
+      candidates: candidates,
+    ));
   }
 
   static double? _runYin(_YinArgs args) =>
-      _yin(args.samples, args.sampleRate);
+      _yin(args.samples, args.sampleRate, args.candidates);
 
-  static double? _yin(List<double> samples, int sampleRate) {
+  static double? _yin(
+      List<double> samples, int sampleRate, List<double> candidates) {
     final halfN = samples.length ~/ 2;
-    final diff = List<double>.filled(halfN, 0.0);
 
     // Step 1: Difference function
+    final diff = List<double>.filled(halfN, 0.0);
     for (var tau = 1; tau < halfN; tau++) {
       for (var j = 0; j < halfN; j++) {
         final delta = samples[j] - samples[j + tau];
@@ -40,90 +74,95 @@ class PitchDetector {
       cmndf[tau] = runningSum > 0 ? diff[tau] * tau / runningSum : 1.0;
     }
 
-    // Step 3: threshold 미만의 첫 번째 지역 최솟값 선택 (YIN 논문 표준).
-    // 기음은 가장 짧은 유효 주기(가장 작은 tau)이므로, threshold 이하 dip이
-    // 처음 등장하는 지점이 기음에 해당한다. 전역 최솟값 방식은 sub-harmonic
-    // (tau의 배수) 최솟값이 더 낮을 때 한 옥타브 낮은 주파수로 튀는 불안정성이 있다.
-    final tauMin = max(2, (sampleRate / _maxFreq).ceil());
-    final tauMax = min(halfN - 2, (sampleRate / _minFreq).floor());
+    // Step 3: 후보 윈도우 합집합 계산.
+    // 각 후보 [target/√2, target×√2] tau 범위를 합집합으로.
+    final allowed = List<bool>.filled(halfN, false);
+    var unionLo = halfN;
+    var unionHi = 0;
+    for (final target in candidates) {
+      final lo = max(2, (sampleRate / (target * _windowFactor)).ceil());
+      final hi =
+          min(halfN - 2, (sampleRate / (target / _windowFactor)).floor());
+      if (lo > hi) continue;
+      for (var t = lo; t <= hi; t++) {
+        allowed[t] = true;
+      }
+      if (lo < unionLo) unionLo = lo;
+      if (hi > unionHi) unionHi = hi;
+    }
+    if (unionLo > unionHi) return null;
 
-    // 각 패스는 "첫 번째 지역 최솟값(first-dip)" 방식을 사용한다.
-    // 전역 최솟값 방식은 sub-harmonic(기음의 정수배 tau)이 더 낮을 때 옥타브 에러를 유발한다.
-    // first-dip은 항상 가장 짧은 유효 주기(= 기음)를 선택하므로 옥타브 안전하다.
-    // 3차 패스(0.40)는 pYIN 논문의 신뢰 한계값으로, 이를 초과하면 소음으로 간주한다.
-    final tauEstimateOpt = _findFirstDip(cmndf, tauMin, tauMax, _threshold)
-        ?? _findFirstDip(cmndf, tauMin, tauMax, _thresholdRelaxed)
-        ?? _findFirstDip(cmndf, tauMin, tauMax, _thresholdFallback);
-    if (tauEstimateOpt == null) return null;
-    var tauEstimate = tauEstimateOpt; // non-nullable int, 루프에서 재할당 가능
+    // Step 4: 합집합 안에서 first-dip 검색 (가장 짧은 tau 우선).
+    int? bestTau;
+    for (final threshold in _thresholds) {
+      bestTau = _findFirstDip(cmndf, unionLo, unionHi, threshold, allowed);
+      if (bestTau != null) break;
+    }
+    if (bestTau == null) return null;
 
-    // Octave correction (반복 적용):
-    // first-dip이 2배음·4배음 tau를 기음보다 먼저 발견하는 경우를 교정한다.
-    // 예) E2(82 Hz, tau=535)가 2배음(164 Hz, tau=268)으로 오탐.
+    // Step 5: 약한 fundamental 보정.
     //
-    // 창 크기 ±25:
-    //   first-dip 슬라이딩 후 tauEstimate가 이론값(268)에서 최대 ±12 벗어날 수 있다.
-    //   octaveTau = 2 * tauEstimate → 최대 ±24 오차 → ±25 창으로 tau=535 포함 보장.
-    //   진단 근거: CMNDF[535]/CMNDF[268] ≈ 0.00인 49개 E2 실패 청크 확인.
+    // 어쿠스틱 기타 저음현(E2 등)은 2배음이 fundamental보다 강한 경우가 흔해서
+    // first-dip 이 2배음 tau 를 잡을 수 있다. 이 케이스만 골라 보정한다.
     //
-    // Octave correction 조건 (둘 중 하나 충족 시 교정 허용):
-    //   c0 > 0.001: CMNDF ≈ 0 완벽 감지(순수 사인파)에서 ratio가 부정확해지는 구간 차단.
-    //   [경로 A] tauEstimate < tauMin * 4 (감지 주파수 > maxFreq/4 ≈ 350 Hz):
-    //     표준 기타 최고음 E4 ≈ 330 Hz 기음은 tau ≥ 134이므로, tau < 128인 감지는
-    //     반드시 배음(harmonic)이다. G3 2배음(tau=113, 392 Hz)이 여기에 해당.
-    //     E4 정탐(tau=134 ≥ 128): 경로 A에서 제외 → 오탐 방지.
-    //   [경로 B] octaveTau > tauMax/2 (교정 목표 주파수 < 140 Hz):
-    //     E2 오탐(tau=268→536): octaveTau=536 > 315 → 경로 B 허용.
-    //   ratio < 0.75: octaveMin이 c0의 75% 미만일 때만 교정.
-    //     진단 근거: G3 오탐 청크 ratio=0.016–0.233, G3/D3 정탐 안전 확인.
-    var improved = true;
-    while (improved) {
-      improved = false;
-      final c0 = cmndf[tauEstimate];
-      final octaveTau = tauEstimate * 2;
-      final inHighHarmonicZone = tauEstimate < tauMin * 4; // 경로 A
-      // 경로 B: E2·A2의 2배음 오탐 교정 (교정 대상 주파수 < 140 Hz).
-      // tauEstimate > 190 하한으로 B3(tau≈179, 247Hz)을 제외.
-      //   근거: A2 2배음(220Hz, tau≈200) ≥ 191 → 포함 / B3(247Hz, tau=179) < 191 → 제외.
-      //   공명 현 간섭 시 B3에서 경로 B가 오발동해 247Hz → 123Hz 오탐하는 문제 방지.
-      final inLowFreqZone = octaveTau > tauMax ~/ 2 && tauEstimate > 190; // 경로 B
-      if (c0 > 0.001 && octaveTau <= tauMax && (inHighHarmonicZone || inLowFreqZone)) {
-        var octaveMin = 1.0;
-        for (var t = max(tauMin, octaveTau - 25);
-            t <= min(tauMax, octaveTau + 25);
-            t++) {
-          if (t < cmndf.length && cmndf[t] < octaveMin) octaveMin = cmndf[t];
+    // 트리거 조건 (둘 다 만족):
+    //   ① first-dip 이 어느 후보 nominal 과도 ±100 cents 이상 떨어져 있다
+    //      → 윈도우 가장자리에 있는 dip = 그 후보의 fundamental 이 아닐 가능성
+    //   ② octaveTau (= 2 × bestTau) 의 CMNDF 가 bestTau 의 70% 미만으로 더 깊다
+    //      → 진짜 fundamental 의 증거 (노이즈 환경에서도 견디도록 완화)
+    //
+    // G3/D3/B3 등 fundamental 이 정확히 잡힌 경우는 ①을 위반해 trigger 자체가 안 됨.
+    // 이로써 옛 알고리즘의 −1200 cents 옥타브 다운 오발동을 구조적으로 차단.
+    final detectedFreq = sampleRate / bestTau.toDouble();
+    var minCentsAbs = double.infinity;
+    for (final target in candidates) {
+      final c = (1200 * log(detectedFreq / target) / ln2).abs();
+      if (c < minCentsAbs) minCentsAbs = c;
+    }
+
+    if (minCentsAbs > 100) {
+      final octaveTau = bestTau * 2;
+      if (octaveTau <= unionHi && allowed[octaveTau]) {
+        var octaveMin = cmndf[octaveTau];
+        var octaveMinTau = octaveTau;
+        final lo = max(0, octaveTau - 5);
+        final hi = min(halfN - 1, octaveTau + 5);
+        for (var t = lo; t <= hi; t++) {
+          if (allowed[t] && cmndf[t] < octaveMin) {
+            octaveMin = cmndf[t];
+            octaveMinTau = t;
+          }
         }
-        if (octaveMin < c0 * 0.75) {
-          tauEstimate = octaveTau;
-          improved = true;
+        if (octaveMin < cmndf[bestTau] * 0.7) {
+          bestTau = octaveMinTau;
         }
       }
     }
 
-    // Step 4: 포물선 보간으로 서브샘플 정밀도 확보
-    final betterTau = _parabolicInterpolation(cmndf, tauEstimate);
+    // Step 6: 포물선 보간으로 서브샘플 정밀도 확보
+    final betterTau = _parabolicInterpolation(cmndf, bestTau);
     if (betterTau <= 0) return null;
 
-    final freq = sampleRate / betterTau;
-    if (freq < _minFreq || freq > _maxFreq) return null;
-    return freq;
+    return sampleRate / betterTau;
   }
 
-  /// [tau] 인근 ±5 범위에서 CMNDF 지역 최솟값을 반환한다.
-  static double _localMin(List<double> cmndf, int tau, int tauMax) {
-    var m = cmndf[tau.clamp(0, cmndf.length - 1)];
-    for (var t = max(0, tau - 5); t <= min(tauMax, tau + 5); t++) {
-      if (t < cmndf.length && cmndf[t] < m) m = cmndf[t];
-    }
-    return m;
-  }
-
+  /// [unionLo..unionHi] 범위에서 [allowed] 가 true 인 tau 들 중,
+  /// CMNDF 가 [threshold] 미만으로 처음 떨어지는 지점을 찾고
+  /// 그 dip 의 지역 최솟값까지 descend 한 tau 를 반환한다.
   static int? _findFirstDip(
-      List<double> cmndf, int tauMin, int tauMax, double threshold) {
-    for (var tau = tauMin + 1; tau < tauMax; tau++) {
+    List<double> cmndf,
+    int unionLo,
+    int unionHi,
+    double threshold,
+    List<bool> allowed,
+  ) {
+    for (var tau = unionLo + 1; tau <= unionHi; tau++) {
+      if (!allowed[tau]) continue;
       if (cmndf[tau] < threshold) {
-        while (tau + 1 < tauMax && cmndf[tau + 1] < cmndf[tau]) {
+        // 같은 dip 의 바닥까지 descend (allowed 범위 안에서만)
+        while (tau + 1 <= unionHi &&
+            allowed[tau + 1] &&
+            cmndf[tau + 1] < cmndf[tau]) {
           tau++;
         }
         return tau;
@@ -132,9 +171,13 @@ class PitchDetector {
     return null;
   }
 
+  /// 이산 최솟값 [x] 주위 3점으로 포물선 적합해 서브샘플 정밀도 tau 반환.
+  ///
+  /// 표준 공식:  t* = x + (y[x-1] - y[x+1]) / (2·(y[x-1] - 2·y[x] + y[x+1]))
+  /// (분모는 second difference, 최솟값에서 양수)
   static double _parabolicInterpolation(List<double> array, int x) {
     if (x <= 0 || x >= array.length - 1) return x.toDouble();
-    final denom = 2.0 * (2 * array[x] - array[x - 1] - array[x + 1]);
+    final denom = 2.0 * (array[x - 1] - 2 * array[x] + array[x + 1]);
     if (denom == 0) return x.toDouble();
     return x + (array[x - 1] - array[x + 1]) / denom;
   }
