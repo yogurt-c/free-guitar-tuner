@@ -11,28 +11,47 @@ class PitchResult {
 }
 
 /// AudioCapture 스트림을 PitchDetector에 연결해 pitch + signalLevel을 스트리밍한다.
+///
+/// 후보 주파수(candidates)는 외부에서 [setCandidates] 로 주입받는다.
+/// - 수동 모드: 선택된 현 1개
+/// - 자동 감지 모드: preset 의 모든 현
 class AudioPipeline {
-  static const _smoothingFrames = 3;
+  static const _smoothingFrames = 5;
 
   final _capture = AudioCapture();
   final _detector = PitchDetector();
   final _freqBuffer = <double>[];
+
+  List<double> _candidates = const [];
 
   StreamSubscription<PitchResult>? _subscription;
   final _controller = StreamController<PitchResult>.broadcast();
 
   Stream<PitchResult> get pitchStream => _controller.stream;
 
+  /// 검색 대상 후보 주파수 갱신.
+  /// 후보 셋이 바뀌면 스무딩 버퍼는 초기화한다(이전 현의 값과 섞이지 않도록).
+  void setCandidates(List<double> candidates) {
+    final changed = !_listEqual(_candidates, candidates);
+    _candidates = List.unmodifiable(candidates);
+    if (changed) _freqBuffer.clear();
+  }
+
   Future<void> start() async {
     await _capture.start();
     _subscription = _capture.stream
         .asyncMap((samples) async {
           final signalLevel = _rms(samples);
-          final freq = await _detector.detect(samples, sampleRate: AudioCapture.sampleRate);
-          return PitchResult(
-            freq: freq != null ? _smooth(freq) : null,
-            signalLevel: signalLevel,
-          );
+          double? freq;
+          if (_candidates.isNotEmpty) {
+            final raw = await _detector.detect(
+              samples,
+              candidates: _candidates,
+              sampleRate: AudioCapture.sampleRate,
+            );
+            if (raw != null) freq = _smooth(raw);
+          }
+          return PitchResult(freq: freq, signalLevel: signalLevel);
         })
         .listen(_controller.add, onError: _controller.addError);
   }
@@ -69,5 +88,13 @@ class AudioPipeline {
     var sum = 0.0;
     for (final s in samples) { sum += s * s; }
     return sqrt(sum / samples.length);
+  }
+
+  static bool _listEqual(List<double> a, List<double> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 }

@@ -34,11 +34,17 @@ class TunerNotifier extends Notifier<TunerState> {
   TunerState build() {
     _pipeline = AudioPipeline();
 
+    // 선택된 현/preset/자동감지 모드 변경에 따라 후보 주파수 갱신.
     ref.listen(
-      tuningSelectionProvider.select((s) => s.selectedString),
+      tuningSelectionProvider,
       (prev, next) {
-        if (prev != null && prev != next) _pipeline.resetBuffer();
+        if (prev?.presetKey != next.presetKey ||
+            prev?.selectedString != next.selectedString ||
+            prev?.autoDetect != next.autoDetect) {
+          _pipeline.setCandidates(_candidatesFor(next));
+        }
       },
+      fireImmediately: true,
     );
 
     Future.microtask(() async {
@@ -59,6 +65,14 @@ class TunerNotifier extends Notifier<TunerState> {
     });
 
     return const TunerState();
+  }
+
+  List<double> _candidatesFor(TuningSelectionState s) {
+    final preset = tuningPresets[s.presetKey]!;
+    if (s.autoDetect) {
+      return [for (final note in preset.strings) note.freq];
+    }
+    return [preset.strings[s.selectedString].freq];
   }
 
   void _onPitchResult(PitchResult result) {
