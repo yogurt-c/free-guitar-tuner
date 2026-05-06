@@ -9,6 +9,7 @@ class TopBar extends StatelessWidget {
     required this.modeLabel,
     required this.onMenuTap,
     required this.onThemeToggle,
+    this.showMenuButton = true,
   });
 
   final AppTheme theme;
@@ -16,6 +17,7 @@ class TopBar extends StatelessWidget {
   final String modeLabel;
   final VoidCallback onMenuTap;
   final VoidCallback onThemeToggle;
+  final bool showMenuButton;
 
   @override
   Widget build(BuildContext context) {
@@ -23,11 +25,14 @@ class TopBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(22, 8, 22, 8),
       child: Row(
         children: [
-          _CircleButton(
-            theme: theme,
-            onTap: onMenuTap,
-            child: _HamburgerIcon(color: theme.textMuted),
-          ),
+          if (showMenuButton)
+            _CircleButton(
+              theme: theme,
+              onTap: onMenuTap,
+              child: _HamburgerIcon(color: theme.textMuted),
+            )
+          else
+            const SizedBox(width: 38),
           Expanded(
             child: Center(
               child: Text(

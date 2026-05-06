@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'metronome/metronome_screen.dart';
 import 'shared/app_theme.dart';
+import 'shared/responsive.dart';
 import 'shared/side_menu.dart';
 import 'tuner/tuner_screen.dart';
 import 'tuning_selector/tuning_selection_notifier.dart';
@@ -59,17 +60,66 @@ class _HomeShellState extends ConsumerState<HomeShell>
   Widget build(BuildContext context) {
     final selection = ref.watch(tuningSelectionProvider);
     final theme = AppTheme(isDark: selection.isDark);
+    final breakpoint = AppBreakpoint.of(context);
 
+    if (breakpoint.isExpanded) {
+      return _buildExpandedLayout(selection, theme);
+    }
+    return _buildDrawerLayout(selection, theme);
+  }
+
+  Widget _buildExpandedLayout(
+    TuningSelectionState selection,
+    AppTheme theme,
+  ) {
+    return Row(
+      children: [
+        SideMenuPanel(
+          theme: theme,
+          activeMode: selection.mode,
+          showHeader: true,
+          onSelect: (mode) =>
+              ref.read(tuningSelectionProvider.notifier).switchMode(mode),
+        ),
+        Container(width: 1, color: theme.line),
+        Expanded(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            child: selection.mode == AppMode.tuner
+                ? TunerScreen(
+                    key: const ValueKey('tuner'),
+                    onMenuTap: () {},
+                    showMenuButton: false,
+                  )
+                : MetronomeScreen(
+                    key: const ValueKey('metro'),
+                    onMenuTap: () {},
+                    showMenuButton: false,
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDrawerLayout(
+    TuningSelectionState selection,
+    AppTheme theme,
+  ) {
     return Stack(
       children: [
-        // Active screen
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 220),
           child: selection.mode == AppMode.tuner
-              ? TunerScreen(key: const ValueKey('tuner'), onMenuTap: _openMenu)
-              : MetronomeScreen(key: const ValueKey('metro'), onMenuTap: _openMenu),
+              ? TunerScreen(
+                  key: const ValueKey('tuner'),
+                  onMenuTap: _openMenu,
+                )
+              : MetronomeScreen(
+                  key: const ValueKey('metro'),
+                  onMenuTap: _openMenu,
+                ),
         ),
-        // Backdrop
         if (_menuOpen)
           FadeTransition(
             opacity: _backdropOpacity,
@@ -78,7 +128,6 @@ class _HomeShellState extends ConsumerState<HomeShell>
               child: Container(color: const Color.fromRGBO(0, 0, 0, 0.52)),
             ),
           ),
-        // Side panel (always in tree for slide animation)
         IgnorePointer(
           ignoring: !_menuOpen,
           child: AnimatedSlide(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../shared/app_theme.dart';
+import '../../shared/responsive.dart';
 
 class BarMeter extends StatelessWidget {
   const BarMeter({
@@ -17,17 +18,17 @@ class BarMeter extends StatelessWidget {
 
   static const _numBars = 21;
   static const _center = 10;
-  static const _barAreaHeight = 96.0;
 
   @override
   Widget build(BuildContext context) {
+    final barAreaHeight = AppDimens.barAreaHeight(context);
     final clamped = cents.clamp(-50.0, 50.0);
     final activePos = _center + (clamped / 50.0) * 10.0;
 
     final bars = List.generate(_numBars, (i) {
       if (!isActive) {
         return _BarData(
-          height: 0.28 * _barAreaHeight,
+          height: 0.28 * barAreaHeight,
           color: theme.line,
           opacity: 0.55,
           isActive: false,
@@ -40,7 +41,6 @@ class BarMeter extends StatelessWidget {
 
       final peakHeight = 1.0 - (distFromActive / 3.5).clamp(0.0, 1.0);
       final heightRatio = 0.28 + peakHeight * 0.72;
-
       final Color color;
       if (inTune) {
         color = theme.inTune;
@@ -64,7 +64,7 @@ class BarMeter extends StatelessWidget {
       }
 
       return _BarData(
-        height: heightRatio * _barAreaHeight,
+        height: heightRatio * barAreaHeight,
         color: color,
         opacity: opacity,
         isActive: distFromActive < 1.2,
@@ -104,7 +104,7 @@ class BarMeter extends StatelessWidget {
           ),
           // Bar visualization
           SizedBox(
-            height: _barAreaHeight,
+            height: barAreaHeight,
             child: Stack(
               clipBehavior: Clip.none,
               children: [
@@ -131,7 +131,7 @@ class BarMeter extends StatelessWidget {
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     width: 1,
-                    height: _barAreaHeight + 8,
+                    height: barAreaHeight + 8,
                     color: hairlineColor,
                   ),
                 ),
