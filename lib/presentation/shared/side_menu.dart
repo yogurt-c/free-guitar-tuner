@@ -9,11 +9,13 @@ class SideMenuPanel extends StatelessWidget {
     required this.theme,
     required this.activeMode,
     required this.onSelect,
+    this.showHeader = false,
   });
 
   final AppTheme theme;
   final AppMode activeMode;
   final void Function(AppMode) onSelect;
+  final bool showHeader;
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +28,10 @@ class SideMenuPanel extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 52),
+              if (showHeader)
+                _AppHeader(theme: theme)
+              else
+                const SizedBox(height: 52),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
                 child: Text(
@@ -58,6 +63,41 @@ class SideMenuPanel extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _AppHeader extends StatelessWidget {
+  const _AppHeader({required this.theme});
+
+  final AppTheme theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(22, 28, 22, 12),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: theme.accent.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(Icons.music_note_rounded, size: 16, color: theme.accent),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            'Guitar Tuner',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: theme.text,
+            ),
+          ),
+        ],
       ),
     );
   }

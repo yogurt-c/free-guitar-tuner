@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../domain/model/note.dart';
 import '../../shared/app_theme.dart';
+import '../../shared/responsive.dart';
 
 class FretboardView extends StatelessWidget {
   const FretboardView({
@@ -22,6 +23,7 @@ class FretboardView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final nutLeft = AppDimens.nutLineLeft(context);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 22),
       padding: const EdgeInsets.only(top: 14, bottom: 10),
@@ -34,7 +36,7 @@ class FretboardView extends StatelessWidget {
         children: [
           // Nut line
           Positioned(
-            left: 68,
+            left: nutLeft,
             top: 0,
             bottom: 0,
             width: 3,
@@ -111,7 +113,7 @@ class _StringRow extends StatelessWidget {
         opacity: isDisabled ? 0.55 : 1.0,
         duration: const Duration(milliseconds: 150),
         child: SizedBox(
-          height: 26,
+          height: AppDimens.stringRowHeight(context),
           child: Row(
             children: [
               _LabelPill(
@@ -158,9 +160,10 @@ class _LabelPill extends StatelessWidget {
     final numColor =
         isSelected ? theme.onAccent : theme.textDim;
 
+    final pillWidth = AppDimens.labelPillWidth(context);
     return AnimatedContainer(
       duration: const Duration(milliseconds: 150),
-      width: 52,
+      width: pillWidth,
       height: 22,
       margin: const EdgeInsets.only(left: 8),
       decoration: BoxDecoration(

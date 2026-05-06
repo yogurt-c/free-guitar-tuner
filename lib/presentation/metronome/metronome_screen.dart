@@ -4,14 +4,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../shared/app_theme.dart';
+import '../shared/responsive.dart';
 import '../tuner/widgets/top_bar.dart';
 import '../tuning_selector/tuning_selection_notifier.dart';
 import 'metronome_notifier.dart';
 
 class MetronomeScreen extends ConsumerWidget {
-  const MetronomeScreen({super.key, required this.onMenuTap});
+  const MetronomeScreen({
+    super.key,
+    required this.onMenuTap,
+    this.showMenuButton = true,
+  });
 
   final VoidCallback onMenuTap;
+  final bool showMenuButton;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -21,29 +27,131 @@ class MetronomeScreen extends ConsumerWidget {
     final notifier = ref.read(metronomeProvider.notifier);
 
     final theme = AppTheme(isDark: selection.isDark);
+    final breakpoint = AppBreakpoint.of(context);
+
+    final topBar = TopBar(
+      theme: theme,
+      isDark: selection.isDark,
+      modeLabel: 'Metronome',
+      onMenuTap: onMenuTap,
+      onThemeToggle: selectionNotifier.toggleDark,
+      showMenuButton: showMenuButton,
+    );
 
     return Scaffold(
       backgroundColor: theme.bg,
       body: SafeArea(
         bottom: false,
-        child: Column(
-          children: [
-            TopBar(
-              theme: theme,
-              isDark: selection.isDark,
-              modeLabel: 'Metronome',
-              onMenuTap: onMenuTap,
-              onThemeToggle: selectionNotifier.toggleDark,
+        child: breakpoint.isMediumOrLarger
+            ? _WideLayout(
+                theme: theme,
+                topBar: topBar,
+                metro: metro,
+                notifier: notifier,
+              )
+            : _NarrowLayout(
+                theme: theme,
+                topBar: topBar,
+                metro: metro,
+                notifier: notifier,
+              ),
+      ),
+    );
+  }
+}
+
+class _NarrowLayout extends StatelessWidget {
+  const _NarrowLayout({
+    required this.theme,
+    required this.topBar,
+    required this.metro,
+    required this.notifier,
+  });
+
+  final AppTheme theme;
+  final Widget topBar;
+  final MetronomeState metro;
+  final MetronomeNotifier notifier;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        topBar,
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                const SizedBox(height: 40),
+                _BpmDisplay(theme: theme, metro: metro),
+                const SizedBox(height: 36),
+                _BeatDots(theme: theme, metro: metro),
+                const SizedBox(height: 28),
+                _TimeSignatureSelector(
+                  theme: theme,
+                  selected: metro.beatsPerBar,
+                  onSelect: notifier.setBeatsPerBar,
+                ),
+                const SizedBox(height: 32),
+                _BpmSlider(
+                  theme: theme,
+                  metro: metro,
+                  onChanged: notifier.setBpm,
+                  onIncrement: notifier.incrementBpm,
+                  onDecrement: notifier.decrementBpm,
+                ),
+                const SizedBox(height: 40),
+              ],
             ),
-            Expanded(
-              child: SingleChildScrollView(
+          ),
+        ),
+        _PlayButton(theme: theme, isPlaying: metro.isPlaying, onTap: notifier.togglePlay),
+        SizedBox(height: MediaQuery.paddingOf(context).bottom + 40),
+      ],
+    );
+  }
+}
+
+class _WideLayout extends StatelessWidget {
+  const _WideLayout({
+    required this.theme,
+    required this.topBar,
+    required this.metro,
+    required this.notifier,
+  });
+
+  final AppTheme theme;
+  final Widget topBar;
+  final MetronomeState metro;
+  final MetronomeNotifier notifier;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomPad = MediaQuery.paddingOf(context).bottom;
+    return Column(
+      children: [
+        topBar,
+        Expanded(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Left: BPM display + beat dots — vertically centered
+              Expanded(
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const SizedBox(height: 40),
                     _BpmDisplay(theme: theme, metro: metro),
                     const SizedBox(height: 36),
                     _BeatDots(theme: theme, metro: metro),
-                    const SizedBox(height: 28),
+                  ],
+                ),
+              ),
+              VerticalDivider(width: 1, thickness: 1, color: theme.line),
+              // Right: controls + play button pinned to bottom
+              Expanded(
+                child: Column(
+                  children: [
+                    const SizedBox(height: 40),
                     _TimeSignatureSelector(
                       theme: theme,
                       selected: metro.beatsPerBar,
@@ -57,16 +165,20 @@ class MetronomeScreen extends ConsumerWidget {
                       onIncrement: notifier.incrementBpm,
                       onDecrement: notifier.decrementBpm,
                     ),
-                    const SizedBox(height: 40),
+                    const Spacer(),
+                    _PlayButton(
+                      theme: theme,
+                      isPlaying: metro.isPlaying,
+                      onTap: notifier.togglePlay,
+                    ),
+                    SizedBox(height: bottomPad + 40),
                   ],
                 ),
               ),
-            ),
-            _PlayButton(theme: theme, isPlaying: metro.isPlaying, onTap: notifier.togglePlay),
-            SizedBox(height: MediaQuery.of(context).padding.bottom + 40),
-          ],
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -349,12 +461,13 @@ class _PlayButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final size = AppDimens.playButtonSize(context);
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        width: 72,
-        height: 72,
+        width: size,
+        height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: isPlaying ? theme.surface2 : theme.accent,

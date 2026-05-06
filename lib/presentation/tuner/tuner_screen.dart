@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/analyzer/note_analyzer.dart';
 import '../../domain/model/tuning_preset.dart';
 import '../shared/app_theme.dart';
+import '../shared/responsive.dart';
 import '../tuning_selector/tuning_selection_notifier.dart';
 import '../tuning_selector/tuning_selector_dropdown.dart';
 import 'tuner_notifier.dart';
@@ -13,9 +14,14 @@ import 'widgets/note_display.dart';
 import 'widgets/top_bar.dart';
 
 class TunerScreen extends ConsumerWidget {
-  const TunerScreen({super.key, required this.onMenuTap});
+  const TunerScreen({
+    super.key,
+    required this.onMenuTap,
+    this.showMenuButton = true,
+  });
 
   final VoidCallback onMenuTap;
+  final bool showMenuButton;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -39,66 +45,182 @@ class TunerScreen extends ConsumerWidget {
       return _PermissionDeniedScreen(theme: theme);
     }
 
+    final topBar = TopBar(
+      theme: theme,
+      isDark: selection.isDark,
+      modeLabel: 'Tuner',
+      onMenuTap: onMenuTap,
+      onThemeToggle: notifier.toggleDark,
+      showMenuButton: showMenuButton,
+    );
+
+    final noteDisplay = NoteDisplay(
+      theme: theme,
+      noteName: noteName,
+      octave: octave,
+      cents: cents,
+      inTune: inTune,
+      currentFreq: currentFreq,
+      targetFreq: targetNote.freq,
+      isActive: isActive,
+    );
+
+    final barMeter = BarMeter(
+      theme: theme,
+      cents: cents,
+      inTune: inTune,
+      isActive: isActive,
+    );
+
+    final fretboard = FretboardView(
+      theme: theme,
+      strings: preset.strings,
+      selectedIndex: selection.selectedString,
+      tunedIndices: selection.tunedStrings,
+      autoMode: selection.autoDetect,
+      onSelect: notifier.selectString,
+    );
+
+    final bottomControls = BottomControls(
+      theme: theme,
+      autoDetect: selection.autoDetect,
+      onToggle: notifier.toggleAutoDetect,
+    );
+
+    final breakpoint = AppBreakpoint.of(context);
 
     return Scaffold(
       backgroundColor: theme.bg,
       body: SafeArea(
         bottom: false,
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    TopBar(
-                      theme: theme,
-                      isDark: selection.isDark,
-                      modeLabel: 'Tuner',
-                      onMenuTap: onMenuTap,
-                      onThemeToggle: notifier.toggleDark,
-                    ),
-                    const SizedBox(height: 18),
-                    NoteDisplay(
-                      theme: theme,
-                      noteName: noteName,
-                      octave: octave,
-                      cents: cents,
-                      inTune: inTune,
-                      currentFreq: currentFreq,
-                      targetFreq: targetNote.freq,
-                      isActive: isActive,
-                    ),
-                    const SizedBox(height: 8),
-                    BarMeter(
-                      theme: theme,
-                      cents: cents,
-                      inTune: inTune,
-                      isActive: isActive,
-                    ),
-                    const SizedBox(height: 28),
-                    TuningSelectorDropdown(theme: theme),
-                    const SizedBox(height: 16),
-                    FretboardView(
-                      theme: theme,
-                      strings: preset.strings,
-                      selectedIndex: selection.selectedString,
-                      tunedIndices: selection.tunedStrings,
-                      autoMode: selection.autoDetect,
-                      onSelect: notifier.selectString,
-                    ),
-                    const SizedBox(height: 16),
-                  ],
+        child: breakpoint.isMediumOrLarger
+            ? _WideLayout(
+                theme: theme,
+                topBar: topBar,
+                noteDisplay: noteDisplay,
+                barMeter: barMeter,
+                selector: TuningSelectorDropdown(theme: theme),
+                fretboard: fretboard,
+                bottomControls: bottomControls,
+              )
+            : _NarrowLayout(
+                topBar: topBar,
+                noteDisplay: noteDisplay,
+                barMeter: barMeter,
+                selector: TuningSelectorDropdown(theme: theme),
+                fretboard: fretboard,
+                bottomControls: bottomControls,
+              ),
+      ),
+    );
+  }
+}
+
+class _NarrowLayout extends StatelessWidget {
+  const _NarrowLayout({
+    required this.topBar,
+    required this.noteDisplay,
+    required this.barMeter,
+    required this.selector,
+    required this.fretboard,
+    required this.bottomControls,
+  });
+
+  final Widget topBar;
+  final Widget noteDisplay;
+  final Widget barMeter;
+  final Widget selector;
+  final Widget fretboard;
+  final Widget bottomControls;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                topBar,
+                const SizedBox(height: 18),
+                noteDisplay,
+                const SizedBox(height: 8),
+                barMeter,
+                const SizedBox(height: 28),
+                selector,
+                const SizedBox(height: 16),
+                fretboard,
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        ),
+        bottomControls,
+      ],
+    );
+  }
+}
+
+class _WideLayout extends StatelessWidget {
+  const _WideLayout({
+    required this.theme,
+    required this.topBar,
+    required this.noteDisplay,
+    required this.barMeter,
+    required this.selector,
+    required this.fretboard,
+    required this.bottomControls,
+  });
+
+  final AppTheme theme;
+  final Widget topBar;
+  final Widget noteDisplay;
+  final Widget barMeter;
+  final Widget selector;
+  final Widget fretboard;
+  final Widget bottomControls;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        topBar,
+        Expanded(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 18),
+                      noteDisplay,
+                      const SizedBox(height: 8),
+                      barMeter,
+                    ],
+                  ),
                 ),
               ),
-            ),
-            BottomControls(
-              theme: theme,
-              autoDetect: selection.autoDetect,
-              onToggle: notifier.toggleAutoDetect,
-            ),
-          ],
+              VerticalDivider(width: 1, thickness: 1, color: theme.line),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 24),
+                      selector,
+                      const SizedBox(height: 16),
+                      fretboard,
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
+        bottomControls,
+      ],
     );
   }
 }
