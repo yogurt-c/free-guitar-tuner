@@ -3,6 +3,7 @@
 .flutter-plugins
 .flutter-plugins-dependencies
 .packages
+.metadata
 build/
 *.lock
 
@@ -13,6 +14,7 @@ android/key.properties
 android/local.properties
 *.apk
 *.aab
+*.zip
 
 # iOS
 ios/Pods/
