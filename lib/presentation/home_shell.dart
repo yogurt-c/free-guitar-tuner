@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'ads/ad_notifier.dart';
+
 import 'metronome/metronome_screen.dart';
 import 'shared/app_theme.dart';
 import 'shared/responsive.dart';
@@ -32,6 +34,9 @@ class _HomeShellState extends ConsumerState<HomeShell>
       parent: _menuCtrl,
       curve: Curves.easeOut,
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(adNotifierProvider.notifier).showOnce();
+    });
   }
 
   @override
