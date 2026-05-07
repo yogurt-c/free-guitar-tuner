@@ -1,4 +1,4 @@
-package com.yogurtc.guitar_tuner
+package com.yogurtc.freetune
 
 import io.flutter.embedding.android.FlutterActivity
 
