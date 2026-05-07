@@ -1,3 +1,5 @@
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -8,7 +10,7 @@ plugins {
 fun decodeDartDefines(): Map<String, String> {
     val raw = (project.findProperty("dart-defines") as? String) ?: return emptyMap()
     return raw.split(",").associate { encoded ->
-        val decoded = String(java.util.Base64.getDecoder().decode(encoded))
+        val decoded = String(Base64.getDecoder().decode(encoded))
         val idx = decoded.indexOf('=')
         decoded.substring(0, idx) to decoded.substring(idx + 1)
     }
