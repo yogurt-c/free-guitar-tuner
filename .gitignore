@@ -31,6 +31,10 @@ ios/Flutter/Flutter.podspec
 # macOS
 .DS_Store
 
+# AdMob 실서비스 ID (dart_defines/prod.json.example 참고)
+dart_defines/prod.json
+ios/Flutter/Admob.xcconfig
+
 # .claude (세션 메모리, 설정 등 로컬 전용)
 # .claude/docs/ 는 제외 → 팀 공유 문서로 푸시
 .claude/*
