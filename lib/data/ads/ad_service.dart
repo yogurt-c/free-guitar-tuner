@@ -45,7 +45,7 @@ class AdService {
         _ad = null;
       },
     );
-    await _ad!.show();
+    _ad!.show();
     return true;
   }
 }
