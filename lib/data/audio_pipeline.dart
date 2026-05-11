@@ -15,6 +15,10 @@ class PitchResult {
 /// 후보 주파수(candidates)는 외부에서 [setCandidates] 로 주입받는다.
 /// - 수동 모드: 선택된 현 1개
 /// - 자동 감지 모드: preset 의 모든 현
+///
+/// Backpressure 정책: 감지기가 한 청크를 처리하는 동안 새 청크가 들어오면
+/// **가장 최신 청크 1개만 보존**하고 나머지는 드롭한다. asyncMap 의 무제한
+/// 큐잉으로 인한 latency 누적을 막아 UI의 깜빡임을 방지.
 class AudioPipeline {
   static const _smoothingFrames = 5;
 
@@ -24,8 +28,11 @@ class AudioPipeline {
 
   List<double> _candidates = const [];
 
-  StreamSubscription<PitchResult>? _subscription;
+  StreamSubscription<List<double>>? _subscription;
   final _controller = StreamController<PitchResult>.broadcast();
+
+  bool _processing = false;
+  List<double>? _pendingSamples;
 
   Stream<PitchResult> get pitchStream => _controller.stream;
 
@@ -39,21 +46,47 @@ class AudioPipeline {
 
   Future<void> start() async {
     await _capture.start();
-    _subscription = _capture.stream
-        .asyncMap((samples) async {
-          final signalLevel = _rms(samples);
-          double? freq;
-          if (_candidates.isNotEmpty) {
-            final raw = await _detector.detect(
-              samples,
-              candidates: _candidates,
-              sampleRate: AudioCapture.sampleRate,
-            );
-            if (raw != null) freq = _smooth(raw);
-          }
-          return PitchResult(freq: freq, signalLevel: signalLevel);
-        })
-        .listen(_controller.add, onError: _controller.addError);
+    _subscription = _capture.stream.listen(_onSamples);
+  }
+
+  void _onSamples(List<double> samples) {
+    // 항상 최신 청크만 유지: 처리 중에 들어온 이전 청크는 버려짐.
+    _pendingSamples = samples;
+    _drain();
+  }
+
+  Future<void> _drain() async {
+    if (_processing) return;
+    _processing = true;
+    try {
+      while (_pendingSamples != null) {
+        final samples = _pendingSamples!;
+        _pendingSamples = null;
+        await _process(samples);
+      }
+    } finally {
+      _processing = false;
+    }
+  }
+
+  Future<void> _process(List<double> samples) async {
+    final signalLevel = _rms(samples);
+    double? freq;
+    if (_candidates.isNotEmpty) {
+      try {
+        final raw = await _detector.detect(
+          samples,
+          candidates: _candidates,
+          sampleRate: AudioCapture.sampleRate,
+        );
+        if (raw != null) freq = _smooth(raw);
+      } catch (e, st) {
+        _controller.addError(e, st);
+        return;
+      }
+    }
+    if (_controller.isClosed) return;
+    _controller.add(PitchResult(freq: freq, signalLevel: signalLevel));
   }
 
   double _smooth(double freq) {
@@ -73,6 +106,7 @@ class AudioPipeline {
   Future<void> stop() async {
     await _subscription?.cancel();
     _subscription = null;
+    _pendingSamples = null;
     _freqBuffer.clear();
     await _capture.stop();
   }
@@ -80,6 +114,7 @@ class AudioPipeline {
   Future<void> dispose() async {
     await stop();
     await _capture.dispose();
+    await _detector.dispose();
     await _controller.close();
   }
 

@@ -1,12 +1,6 @@
+import 'dart:async';
+import 'dart:isolate';
 import 'dart:math';
-
-import 'package:flutter/foundation.dart';
-
-typedef _YinArgs = ({
-  List<double> samples,
-  int sampleRate,
-  List<double> candidates,
-});
 
 /// 다중 후보 기반 YIN 피치 감지기.
 ///
@@ -22,15 +16,39 @@ typedef _YinArgs = ({
 ///    노이즈/배음 오탐을 차단.
 /// 2. first-dip 원리에 의해 fundamental 의 정수배 tau (2T, 3T...) 인 sub-harmonic
 ///    dip 은 무시되므로 옥타브-다운 오탐(-1200 cents)이 발생하지 않는다.
+///
+/// 실행 모델: long-lived isolate 1개 사용.
+/// `compute()` 가 매 호출마다 새 isolate 를 spawn/teardown 하여 모바일에서
+/// 청크당 50–200ms 오버헤드가 누적되던 문제를 제거.
 class PitchDetector {
   static const _sampleRate = 44100;
 
-  /// 후보 윈도우 반폭 = √2 (±반옥타브, ±600 cents).
-  static final double _windowFactor = sqrt2;
+  Isolate? _isolate;
+  SendPort? _sendPort;
+  ReceivePort? _receivePort;
+  final _pending = <int, Completer<double?>>{};
+  int _nextId = 0;
+  Future<void>? _spawning;
+  bool _disposed = false;
 
-  /// CMNDF 임계값 캐스케이드.
-  /// 0.15 (표준) → 0.25 (완화) → 0.40 (pYIN 한계).
-  static const _thresholds = <double>[0.15, 0.25, 0.40];
+  Future<void> _ensureSpawned() {
+    if (_sendPort != null) return Future.value();
+    return _spawning ??= _spawn();
+  }
+
+  Future<void> _spawn() async {
+    final ready = Completer<SendPort>();
+    _receivePort = ReceivePort();
+    _receivePort!.listen((msg) {
+      if (msg is SendPort) {
+        ready.complete(msg);
+      } else if (msg is _PitchResponse) {
+        _pending.remove(msg.id)?.complete(msg.freq);
+      }
+    });
+    _isolate = await Isolate.spawn(_isolateMain, _receivePort!.sendPort);
+    _sendPort = await ready.future;
+  }
 
   /// 감지 실행. [candidates]는 비어 있으면 안 된다.
   ///
@@ -40,17 +58,54 @@ class PitchDetector {
     List<double> samples, {
     required List<double> candidates,
     int sampleRate = _sampleRate,
-  }) {
+  }) async {
     assert(candidates.isNotEmpty, 'candidates must not be empty');
-    return compute(_runYin, (
+    if (_disposed) return null;
+    await _ensureSpawned();
+    if (_disposed) return null;
+    final id = _nextId++;
+    final completer = Completer<double?>();
+    _pending[id] = completer;
+    _sendPort!.send(_PitchRequest(
+      id: id,
       samples: samples,
       sampleRate: sampleRate,
       candidates: candidates,
     ));
+    return completer.future;
   }
 
-  static double? _runYin(_YinArgs args) =>
-      _yin(args.samples, args.sampleRate, args.candidates);
+  Future<void> dispose() async {
+    _disposed = true;
+    for (final c in _pending.values) {
+      if (!c.isCompleted) c.complete(null);
+    }
+    _pending.clear();
+    _isolate?.kill(priority: Isolate.immediate);
+    _isolate = null;
+    _sendPort = null;
+    _receivePort?.close();
+    _receivePort = null;
+    _spawning = null;
+  }
+
+  static void _isolateMain(SendPort mainSend) {
+    final port = ReceivePort();
+    mainSend.send(port.sendPort);
+    port.listen((msg) {
+      if (msg is _PitchRequest) {
+        final freq = _yin(msg.samples, msg.sampleRate, msg.candidates);
+        mainSend.send(_PitchResponse(id: msg.id, freq: freq));
+      }
+    });
+  }
+
+  /// 후보 윈도우 반폭 = √2 (±반옥타브, ±600 cents).
+  static final double _windowFactor = sqrt2;
+
+  /// CMNDF 임계값 캐스케이드.
+  /// 0.15 (표준) → 0.25 (완화) → 0.40 (pYIN 한계).
+  static const _thresholds = <double>[0.15, 0.25, 0.40];
 
   static double? _yin(
       List<double> samples, int sampleRate, List<double> candidates) {
@@ -181,4 +236,23 @@ class PitchDetector {
     if (denom == 0) return x.toDouble();
     return x + (array[x - 1] - array[x + 1]) / denom;
   }
+}
+
+class _PitchRequest {
+  final int id;
+  final List<double> samples;
+  final int sampleRate;
+  final List<double> candidates;
+  _PitchRequest({
+    required this.id,
+    required this.samples,
+    required this.sampleRate,
+    required this.candidates,
+  });
+}
+
+class _PitchResponse {
+  final int id;
+  final double? freq;
+  _PitchResponse({required this.id, required this.freq});
 }
