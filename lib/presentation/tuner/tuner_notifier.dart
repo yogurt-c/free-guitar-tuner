@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/audio_capture.dart';
@@ -29,10 +29,24 @@ class TunerNotifier extends Notifier<TunerState> {
   late final AudioPipeline _pipeline;
   StreamSubscription<PitchResult>? _subscription;
   Timer? _clearTimer;
+  AppLifecycleListener? _lifecycleListener;
+
+  /// start/stop 호출을 직렬화하여 race를 차단한다.
+  /// 화면 잠금/해제가 빠르게 토글되어도 마지막 의도가 일관되게 적용됨.
+  Future<void>? _ongoing;
+  bool _disposed = false;
 
   @override
   TunerState build() {
     _pipeline = AudioPipeline();
+
+    // 화면 off/background 진입 시 마이크/오디오 세션을 명시적으로 stop 한다.
+    // OS가 mic 스트림을 끊은 뒤 복귀해도 자동 재시작되지 않던 문제 해결.
+    _lifecycleListener = AppLifecycleListener(
+      onPause: () => _stop(),
+      onHide: () => _stop(),
+      onResume: () => _start(),
+    );
 
     // 선택된 현/preset/자동감지 모드 변경에 따라 후보 주파수 갱신.
     ref.listen(
@@ -47,18 +61,12 @@ class TunerNotifier extends Notifier<TunerState> {
       fireImmediately: true,
     );
 
-    Future.microtask(() async {
-      try {
-        await _pipeline.start();
-        _subscription = _pipeline.pitchStream.listen(_onPitchResult);
-      } on MicrophonePermissionException {
-        state = const TunerState(permissionDenied: true);
-      } catch (e) {
-        debugPrint('[TunerNotifier] audio init failed: $e');
-      }
-    });
+    _start();
 
     ref.onDispose(() async {
+      _disposed = true;
+      _lifecycleListener?.dispose();
+      _lifecycleListener = null;
       _clearTimer?.cancel();
       await _subscription?.cancel();
       await _pipeline.dispose();
@@ -74,6 +82,45 @@ class TunerNotifier extends Notifier<TunerState> {
     }
     return [preset.strings[s.selectedString].freq];
   }
+
+  Future<void> _runOp(Future<void> Function() op) {
+    final prev = _ongoing ?? Future.value();
+    final next = prev.catchError((_) {}).then((_) async {
+      if (_disposed) return;
+      await op();
+    });
+    _ongoing = next.catchError((_) {});
+    return next;
+  }
+
+  Future<void> _start() => _runOp(() async {
+        if (_subscription != null) return;
+        try {
+          await _pipeline.start();
+          if (_disposed) return;
+          _subscription = _pipeline.pitchStream.listen(_onPitchResult);
+        } on MicrophonePermissionException {
+          state = const TunerState(permissionDenied: true);
+        } catch (e) {
+          debugPrint('[TunerNotifier] start failed: $e');
+        }
+      });
+
+  Future<void> _stop() => _runOp(() async {
+        _clearTimer?.cancel();
+        _clearTimer = null;
+        await _subscription?.cancel();
+        _subscription = null;
+        try {
+          await _pipeline.stop();
+        } catch (e) {
+          debugPrint('[TunerNotifier] stop failed: $e');
+        }
+        if (!_disposed) {
+          state = const TunerState();
+          ref.read(tuningSelectionProvider.notifier).onTunerUpdate(tuneResult: null);
+        }
+      });
 
   void _onPitchResult(PitchResult result) {
     final selectionNotifier = ref.read(tuningSelectionProvider.notifier);
