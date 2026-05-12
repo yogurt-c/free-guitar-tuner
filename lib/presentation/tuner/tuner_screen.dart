@@ -35,6 +35,7 @@ class TunerScreen extends ConsumerWidget {
 
     final tuneResult = tuner.tuneResult;
     final bool isActive = tuneResult != null;
+    final bool isLocked = tuner.isLocked;
     final double cents = tuneResult?.cents ?? 0.0;
     final bool inTune = tuneResult?.state == TuneState.inTune;
     final String noteName = tuneResult?.noteName ?? targetNote.name;
@@ -63,6 +64,7 @@ class TunerScreen extends ConsumerWidget {
       currentFreq: currentFreq,
       targetFreq: targetNote.freq,
       isActive: isActive,
+      isLocked: isLocked,
     );
 
     final barMeter = BarMeter(
@@ -70,6 +72,7 @@ class TunerScreen extends ConsumerWidget {
       cents: cents,
       inTune: inTune,
       isActive: isActive,
+      isLocked: isLocked,
     );
 
     final fretboard = FretboardView(

@@ -9,12 +9,18 @@ class BarMeter extends StatelessWidget {
     required this.cents,
     required this.inTune,
     this.isActive = true,
+    this.isLocked = true,
   });
 
   final AppTheme theme;
   final double cents;
   final bool inTune;
+
+  /// 표시할 결과가 있는가 (LOCKED + tentative + hold 모두).
   final bool isActive;
+
+  /// LOCKED 인가. false 면 [isActive] 라도 dim + locked 배지 미표시.
+  final bool isLocked;
 
   static const _numBars = 21;
   static const _center = 10;
@@ -71,9 +77,12 @@ class BarMeter extends StatelessWidget {
       );
     });
 
-    final hairlineColor = isActive && inTune
+    final hairlineColor = isLocked && inTune
         ? theme.inTune.withValues(alpha: 0.4)
         : theme.line;
+
+    // tentative / hold: 바 전체를 dim. LOCKED 면 풀 컬러.
+    final double activeAlpha = isLocked ? 1.0 : 0.55;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 22),
@@ -93,7 +102,7 @@ class BarMeter extends StatelessWidget {
                   ),
                   child: FadeTransition(opacity: animation, child: child),
                 ),
-                child: isActive && inTune
+                child: isLocked && inTune
                     ? _LockedBadge(
                         key: const ValueKey('locked'),
                         theme: theme,
@@ -108,11 +117,11 @@ class BarMeter extends StatelessWidget {
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-                // Radial halo (extends beyond bounds)
+                // Radial halo (extends beyond bounds) — LOCKED + inTune 에서만.
                 Positioned(
                   top: -12, bottom: -12, left: -8, right: -8,
                   child: AnimatedOpacity(
-                    opacity: isActive && inTune ? 1.0 : 0.0,
+                    opacity: isLocked && inTune ? 1.0 : 0.0,
                     duration: const Duration(milliseconds: 250),
                     child: DecoratedBox(
                       decoration: BoxDecoration(
@@ -135,16 +144,20 @@ class BarMeter extends StatelessWidget {
                     color: hairlineColor,
                   ),
                 ),
-                // Bars
+                // Bars — tentative 구간에선 activeAlpha 로 dim.
                 Positioned.fill(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      for (int i = 0; i < bars.length; i++) ...[
-                        if (i > 0) const SizedBox(width: 3),
-                        Expanded(child: _Bar(data: bars[i], theme: theme)),
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 200),
+                    opacity: isActive ? activeAlpha : 1.0,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        for (int i = 0; i < bars.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 3),
+                          Expanded(child: _Bar(data: bars[i], theme: theme)),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ],
@@ -152,9 +165,13 @@ class BarMeter extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           AnimatedOpacity(
-            opacity: isActive ? 1.0 : 0.0,
+            opacity: !isActive ? 0.0 : activeAlpha,
             duration: const Duration(milliseconds: 200),
-            child: _CentsLabels(theme: theme, cents: cents, inTune: inTune),
+            child: _CentsLabels(
+              theme: theme,
+              cents: cents,
+              inTune: isLocked && inTune,
+            ),
           ),
         ],
       ),

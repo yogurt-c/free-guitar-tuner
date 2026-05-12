@@ -13,6 +13,7 @@ class NoteDisplay extends StatelessWidget {
     required this.currentFreq,
     required this.targetFreq,
     this.isActive = true,
+    this.isLocked = true,
   });
 
   final AppTheme theme;
@@ -22,9 +23,15 @@ class NoteDisplay extends StatelessWidget {
   final bool inTune;
   final double currentFreq;
   final double targetFreq;
+
+  /// 표시할 결과가 있는가 (LOCKED + tentative + hold 모두 포함).
   final bool isActive;
 
+  /// LOCKED 인가. false 면 [isActive] 라도 dim 으로 표시(감지 중).
+  final bool isLocked;
+
   String get _statusText {
+    if (!isLocked) return 'DETECTING…';
     if (inTune) return 'IN TUNE';
     if (cents < -3) return 'TOO LOW  ♭';
     if (cents > 3) return 'TOO HIGH  ♯';
@@ -33,20 +40,27 @@ class NoteDisplay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final noteColor = isActive
+    final rawNoteColor = isActive
         ? theme.noteColor(cents, inTune)
         : theme.textDim;
-    final statusColor = theme.statusColor(cents, inTune);
+    // tentative/hold 구간은 alpha 로 dim. LOCKED 면 풀 컬러.
+    final noteColor = isActive && !isLocked
+        ? rawNoteColor.withValues(alpha: 0.55)
+        : rawNoteColor;
+    final statusColor =
+        isLocked ? theme.statusColor(cents, inTune) : theme.textMuted;
+    final double tuneOpacity =
+        !isActive ? 0.0 : (isLocked ? 1.0 : 0.55);
 
     return Column(
       children: [
         AnimatedOpacity(
           duration: const Duration(milliseconds: 200),
-          opacity: isActive ? 1.0 : 0.0,
+          opacity: tuneOpacity,
           child: _StatusPill(
             text: _statusText,
             statusColor: statusColor,
-            inTune: inTune,
+            inTune: isLocked && inTune,
             theme: theme,
           ),
         ),
@@ -85,7 +99,7 @@ class NoteDisplay extends StatelessWidget {
         const SizedBox(height: 6),
         AnimatedOpacity(
           duration: const Duration(milliseconds: 200),
-          opacity: isActive ? 1.0 : 0.3,
+          opacity: !isActive ? 0.3 : (isLocked ? 1.0 : 0.55),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [

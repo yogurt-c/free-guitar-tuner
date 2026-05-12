@@ -1,12 +1,10 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../domain/analyzer/note_analyzer.dart';
-import '../../domain/model/tuning_preset.dart';
 import '../metronome/metronome_notifier.dart';
 
 enum AppMode { tuner, metronome }
@@ -60,13 +58,7 @@ class TuningSelectionState {
 }
 
 class TuningSelectionNotifier extends Notifier<TuningSelectionState> {
-  static const _autoDetectMaxCents = 200.0;
-  // 같은 현이 연속으로 감지되어야 전환 — 단일 프레임 오탐 방지
-  static const _autoDetectHoldFrames = 3;
-
   Timer? _inTuneTimer;
-  int _autoDetectCandidate = -1;
-  int _autoDetectCandidateCount = 0;
 
   @override
   TuningSelectionState build() {
@@ -78,7 +70,10 @@ class TuningSelectionNotifier extends Notifier<TuningSelectionState> {
     return TuningSelectionState.initial(isDark: ref.read(initialThemeDarkProvider));
   }
 
-  /// TunerNotifier._onPitchResult()에서 호출 — tunerProvider 의존성 없이 처리.
+  /// TunerNotifier 가 [TuneResult] 받을 때마다 호출.
+  /// in-tune 5초 유지 시 tunedStrings 에 추가 + 햅틱.
+  /// 자동감지의 selectedString 전환은 TunerNotifier 가 PitchTracker 의 LOCKED 결정에
+  /// 따라 [selectString] 호출 — 여기서 처리 안 함.
   void onTunerUpdate({required TuneResult? tuneResult}) {
     if (state.mode != AppMode.tuner) {
       _inTuneTimer?.cancel();
@@ -89,13 +84,7 @@ class TuningSelectionNotifier extends Notifier<TuningSelectionState> {
     if (tuneResult == null) {
       _inTuneTimer?.cancel();
       _inTuneTimer = null;
-      _autoDetectCandidate = -1;
-      _autoDetectCandidateCount = 0;
       return;
-    }
-
-    if (state.autoDetect) {
-      _autoDetectString(tuneResult.detectedFreq);
     }
 
     if (tuneResult.state == TuneState.inTune) {
@@ -129,8 +118,7 @@ class TuningSelectionNotifier extends Notifier<TuningSelectionState> {
   }
 
   void selectString(int index) {
-    _autoDetectCandidate = -1;
-    _autoDetectCandidateCount = 0;
+    if (state.selectedString == index) return;
     state = state.copyWith(selectedString: index);
   }
 
@@ -150,46 +138,6 @@ class TuningSelectionNotifier extends Notifier<TuningSelectionState> {
       ref.read(metronomeProvider.notifier).stop();
     }
     state = state.copyWith(mode: mode);
-  }
-
-  void _autoDetectString(double detectedFreq) {
-    final preset = tuningPresets[state.presetKey]!;
-    int? bestIdx;
-    var bestCentsAbs = double.infinity;
-
-    for (var i = 0; i < preset.strings.length; i++) {
-      final centsAbs =
-          (1200 * log(detectedFreq / preset.strings[i].freq) / ln2).abs();
-      if (centsAbs < bestCentsAbs) {
-        bestCentsAbs = centsAbs;
-        bestIdx = i;
-      }
-    }
-
-    if (bestIdx == null || bestCentsAbs >= _autoDetectMaxCents) {
-      _autoDetectCandidate = -1;
-      _autoDetectCandidateCount = 0;
-      return;
-    }
-
-    if (bestIdx == state.selectedString) {
-      _autoDetectCandidate = -1;
-      _autoDetectCandidateCount = 0;
-      return;
-    }
-
-    // 같은 현이 연속으로 감지될 때만 전환 (오탐 방지)
-    if (bestIdx == _autoDetectCandidate) {
-      _autoDetectCandidateCount++;
-      if (_autoDetectCandidateCount >= _autoDetectHoldFrames) {
-        state = state.copyWith(selectedString: bestIdx);
-        _autoDetectCandidate = -1;
-        _autoDetectCandidateCount = 0;
-      }
-    } else {
-      _autoDetectCandidate = bestIdx;
-      _autoDetectCandidateCount = 1;
-    }
   }
 }
 
