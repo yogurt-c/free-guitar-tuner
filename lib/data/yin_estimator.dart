@@ -3,6 +3,7 @@ import 'dart:isolate';
 import 'dart:math';
 
 import '../domain/model/pitch_estimate.dart';
+import 'pitch_estimator.dart';
 
 /// 표준 YIN single-fundamental 추정기 (de Cheveigné & Kawahara, 2002, JASA).
 ///
@@ -26,7 +27,7 @@ import '../domain/model/pitch_estimate.dart';
 /// confidence 가 [maxConfidence] 이상이면 unvoiced 로 보고 null.
 ///
 /// 실행 모델: long-lived isolate 1개.
-class YinEstimator {
+class YinEstimator implements PitchEstimator {
   static const _defaultSampleRate = 44100;
 
   /// YIN absolute threshold (paper step 4). paper 권장 0.10–0.15.
@@ -71,6 +72,7 @@ class YinEstimator {
   /// 결과:
   ///   - voiced + confidence 통과: [PitchEstimate]
   ///   - unvoiced / 신뢰 부족 / 범위 비어있음: null
+  @override
   Future<PitchEstimate?> estimate(
     List<double> samples, {
     required int tauMin,
@@ -97,6 +99,7 @@ class YinEstimator {
     return completer.future;
   }
 
+  @override
   Future<void> dispose() async {
     _disposed = true;
     for (final c in _pending.values) {

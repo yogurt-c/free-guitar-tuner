@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import '../domain/model/tracker_state.dart';
 import 'audio_capture.dart';
+import 'pitch_estimator.dart';
 import 'pitch_tracker.dart';
 import 'yin_estimator.dart';
 
@@ -40,11 +41,14 @@ class AudioPipeline {
   int _tauMax = 0;
 
   final AudioSource _capture;
-  final _estimator = YinEstimator();
+  final PitchEstimator _estimator;
   final _tracker = PitchTracker();
 
-  /// 기본은 [AudioCapture]. 테스트에선 [AudioSource] 구현체 주입해 mic 우회.
-  AudioPipeline({AudioSource? source}) : _capture = source ?? AudioCapture();
+  /// 기본은 [AudioCapture] + [YinEstimator]. 테스트/비교 시 다른 [PitchEstimator]
+  /// 구현체 (예: [PitchDetectorDartEstimator]) 를 주입해 알고리즘 교체 비교 가능.
+  AudioPipeline({AudioSource? source, PitchEstimator? estimator})
+      : _capture = source ?? AudioCapture(),
+        _estimator = estimator ?? YinEstimator();
 
   StreamSubscription<List<double>>? _subscription;
   final _controller = StreamController<TrackerState>.broadcast();
