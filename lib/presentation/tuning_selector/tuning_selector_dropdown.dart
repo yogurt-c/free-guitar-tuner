@@ -19,9 +19,25 @@ class _TuningSelectorDropdownState
   bool _open = false;
   final _layerLink = LayerLink();
   final _overlayController = OverlayPortalController();
+  final _triggerKey = GlobalKey();
   double _triggerWidth = 0;
 
   AppTheme get _t => widget.theme;
+
+  double _availableHeightBelow(BuildContext context) {
+    final renderBox =
+        _triggerKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return MediaQuery.of(context).size.height * 0.45;
+    final triggerBottomY =
+        renderBox.localToGlobal(Offset(0, renderBox.size.height)).dy;
+    final mq = MediaQuery.of(context);
+    final safeBottom = mq.size.height - mq.viewPadding.bottom;
+    const dropdownOffset = 6.0;
+    return (safeBottom - triggerBottomY - dropdownOffset).clamp(
+      100.0,
+      mq.size.height * 0.6,
+    );
+  }
 
   void _toggle() {
     if (_open) {
@@ -67,6 +83,7 @@ class _TuningSelectorDropdownState
                   child: _DropdownList(
                     theme: _t,
                     selectedKey: selection.presetKey,
+                    maxHeight: _availableHeightBelow(context),
                     onSelect: (key) {
                       ref
                           .read(tuningSelectionProvider.notifier)
@@ -82,6 +99,7 @@ class _TuningSelectorDropdownState
             builder: (context, constraints) {
               _triggerWidth = constraints.maxWidth;
               return GestureDetector(
+                key: _triggerKey,
                 onTap: _toggle,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
@@ -160,11 +178,13 @@ class _DropdownList extends StatelessWidget {
   const _DropdownList({
     required this.theme,
     required this.selectedKey,
+    required this.maxHeight,
     required this.onSelect,
   });
 
   final AppTheme theme;
   final String selectedKey;
+  final double maxHeight;
   final void Function(String) onSelect;
 
   @override
@@ -188,9 +208,7 @@ class _DropdownList extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(14),
         child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.45,
-          ),
+          constraints: BoxConstraints(maxHeight: maxHeight),
           child: ListView.builder(
             padding: EdgeInsets.zero,
             shrinkWrap: true,
