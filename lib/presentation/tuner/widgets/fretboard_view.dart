@@ -120,6 +120,7 @@ class _StringRow extends StatelessWidget {
                 theme: theme,
                 note: note,
                 stringIndex: stringIndex,
+                totalStrings: totalStrings,
                 isSelected: isSelected,
               ),
               const SizedBox(width: 4),
@@ -145,12 +146,14 @@ class _LabelPill extends StatelessWidget {
     required this.theme,
     required this.note,
     required this.stringIndex,
+    required this.totalStrings,
     required this.isSelected,
   });
 
   final AppTheme theme;
   final Note note;
   final int stringIndex;
+  final int totalStrings;
   final bool isSelected;
 
   @override
@@ -175,7 +178,7 @@ class _LabelPill extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            '${stringIndex + 1}',
+            '${totalStrings - stringIndex}',
             style: TextStyle(
               fontFamily: 'monospace',
               fontSize: 9,
