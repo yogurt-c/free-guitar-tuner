@@ -12,4 +12,7 @@ build-aab:
 
 build-ios:
 	./scripts/gen_ios_xcconfig.sh prod
-	flutter build ios --dart-define-from-file=dart_defines/prod.json
+	flutter build ios --release --dart-define-from-file=dart_defines/prod.json
+	@echo ""
+	@echo "✅ iOS 빌드 완료. 지금 바로 Xcode에서 Product > Archive 진행."
+	@echo "⚠️  Archive 전에 'make dev' 를 실행하면 dart-define이 초기화되므로 주의."

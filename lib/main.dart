@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'dart:ui';
 
+import 'package:app_tracking_transparency/app_tracking_transparency.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,6 +26,10 @@ void main() async {
   final savedDark = prefs.getBool('theme_is_dark');
   final isDark = savedDark ??
       (PlatformDispatcher.instance.platformBrightness == Brightness.dark);
+
+  if (Platform.isIOS) {
+    await AppTrackingTransparency.requestTrackingAuthorization();
+  }
 
   await MobileAds.instance.initialize();
 

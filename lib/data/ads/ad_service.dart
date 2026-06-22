@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 class AdService {
@@ -12,16 +13,23 @@ class AdService {
       : const String.fromEnvironment('ADMOB_IOS_UNIT_ID');
 
   void load() {
+    final unitId = _adUnitId;
+    if (unitId.isEmpty) {
+      debugPrint('[AdService] ADMOB unit ID is empty — dart-define not set');
+      _loadCompleter = Completer<void>()..complete();
+      return;
+    }
     _loadCompleter = Completer<void>();
     InterstitialAd.load(
-      adUnitId: _adUnitId,
+      adUnitId: unitId,
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
           _ad = ad;
           _loadCompleter?.complete();
         },
-        onAdFailedToLoad: (_) {
+        onAdFailedToLoad: (error) {
+          debugPrint('[AdService] Failed to load: ${error.code} / ${error.message}');
           _loadCompleter?.complete();
         },
       ),
