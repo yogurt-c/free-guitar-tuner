@@ -50,8 +50,9 @@ post_install do |installer|
   user_project = installer.aggregate_targets.first&.user_project
   if user_project
     runner_target = user_project.targets.find { |t| t.name == 'Runner' }
-    if runner_target && !runner_target.shell_script_build_phases.any? { |p| p.name == 'Fix Simulator Platform Tags' }
-      phase = runner_target.new_shell_script_build_phase('Fix Simulator Platform Tags')
+    if runner_target
+      phase = runner_target.shell_script_build_phases.find { |p| p.name == 'Fix Simulator Platform Tags' }
+      phase ||= runner_target.new_shell_script_build_phase('Fix Simulator Platform Tags')
       phase.shell_script = <<~'SCRIPT'
         if [ -z "${EXPANDED_CODE_SIGN_IDENTITY}" ] || [ "${EXPANDED_CODE_SIGN_IDENTITY}" = "-" ]; then
           exit 0
@@ -61,7 +62,7 @@ post_install do |installer|
           if [ -f "${bin}" ] && xcrun vtool -show "${bin}" 2>/dev/null | grep -q "platform IOSSIMULATOR"; then
             minos=$(xcrun vtool -show "${bin}" 2>/dev/null | grep "minos" | head -1 | awk '{print $2}')
             sdk=$(xcrun vtool -show "${bin}" 2>/dev/null | grep "sdk " | head -1 | awk '{print $2}')
-            xcrun vtool -set-build-version ios "${minos}" "${sdk}" -replace -output "${bin}" "${bin}"
+            xcrun vtool -set-build-version ios "${IPHONEOS_DEPLOYMENT_TARGET}" "${sdk}" -replace -output "${bin}" "${bin}"
             codesign --force --sign "${EXPANDED_CODE_SIGN_IDENTITY}" --timestamp=none "${fw}"
             echo "Fixed + re-signed: $(basename ${fw})"
           fi
