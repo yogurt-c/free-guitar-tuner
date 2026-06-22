@@ -45,4 +45,29 @@ post_install do |installer|
       end
     end
   end
+
+  # Fix objective_c.framework simulator platform tag (arm64 slice built as IOSSIMULATOR)
+  user_project = installer.aggregate_targets.first&.user_project
+  if user_project
+    runner_target = user_project.targets.find { |t| t.name == 'Runner' }
+    if runner_target && !runner_target.shell_script_build_phases.any? { |p| p.name == 'Fix Simulator Platform Tags' }
+      phase = runner_target.new_shell_script_build_phase('Fix Simulator Platform Tags')
+      phase.shell_script = <<~'SCRIPT'
+        if [ -z "${EXPANDED_CODE_SIGN_IDENTITY}" ] || [ "${EXPANDED_CODE_SIGN_IDENTITY}" = "-" ]; then
+          exit 0
+        fi
+        find "${CODESIGNING_FOLDER_PATH}/Frameworks" -name "*.framework" -type d 2>/dev/null | while read fw; do
+          bin="${fw}/$(basename "${fw}" .framework)"
+          if [ -f "${bin}" ] && xcrun vtool -show "${bin}" 2>/dev/null | grep -q "platform IOSSIMULATOR"; then
+            minos=$(xcrun vtool -show "${bin}" 2>/dev/null | grep "minos" | head -1 | awk '{print $2}')
+            sdk=$(xcrun vtool -show "${bin}" 2>/dev/null | grep "sdk " | head -1 | awk '{print $2}')
+            xcrun vtool -set-build-version ios "${minos}" "${sdk}" -replace -output "${bin}" "${bin}"
+            codesign --force --sign "${EXPANDED_CODE_SIGN_IDENTITY}" --timestamp=none "${fw}"
+            echo "Fixed + re-signed: $(basename ${fw})"
+          fi
+        done
+      SCRIPT
+      user_project.save
+    end
+  end
 end

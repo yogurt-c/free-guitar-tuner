@@ -202,6 +202,7 @@
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				5900F66C7B71ACB1E0496DD2 /* [CP] Embed Pods Frameworks */,
 				2C4D5988AF6E52B98BFC4AB8 /* [CP] Copy Pods Resources */,
+				02985F86AB9059D2E74CAA68 /* Fix Simulator Platform Tags */,
 			);
 			buildRules = (
 			);
@@ -273,6 +274,24 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		02985F86AB9059D2E74CAA68 /* Fix Simulator Platform Tags */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Fix Simulator Platform Tags";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ -z \"${EXPANDED_CODE_SIGN_IDENTITY}\" ] || [ \"${EXPANDED_CODE_SIGN_IDENTITY}\" = \"-\" ]; then\n  exit 0\nfi\nfind \"${CODESIGNING_FOLDER_PATH}/Frameworks\" -name \"*.framework\" -type d 2>/dev/null | while read fw; do\n  bin=\"${fw}/$(basename \"${fw}\" .framework)\"\n  if [ -f \"${bin}\" ] && xcrun vtool -show \"${bin}\" 2>/dev/null | grep -q \"platform IOSSIMULATOR\"; then\n    minos=$(xcrun vtool -show \"${bin}\" 2>/dev/null | grep \"minos\" | head -1 | awk '{print $2}')\n    sdk=$(xcrun vtool -show \"${bin}\" 2>/dev/null | grep \"sdk \" | head -1 | awk '{print $2}')\n    xcrun vtool -set-build-version ios \"${minos}\" \"${sdk}\" -replace -output \"${bin}\" \"${bin}\"\n    codesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" --timestamp=none \"${fw}\"\n    echo \"Fixed + re-signed: $(basename ${fw})\"\n  fi\ndone\n";
+		};
 		2C4D5988AF6E52B98BFC4AB8 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
